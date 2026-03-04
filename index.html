@@ -1,0 +1,3239 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🍕 Prego Pizza — Panel de Control</title>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #f4f6f9;
+    --bg2: #ffffff;
+    --bg3: #f0f2f5;
+    --border: #dde1e8;
+    --text: #1a202c;
+    --text2: #6b7280;
+    --green: #16a34a;
+    --green-dim: #dcfce7;
+    --yellow: #d97706;
+    --yellow-dim: #fef3c7;
+    --red: #dc2626;
+    --red-dim: #fee2e2;
+    --blue: #2563eb;
+    --blue-dim: #dbeafe;
+    --purple: #7c3aed;
+    --radius: 12px;
+    --radius-sm: 8px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; min-height: 100vh; }
+
+  /* ── Header ── */
+  .header { background: var(--bg2); border-bottom: 1px solid var(--border); padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; box-shadow: 0 1px 4px #0001; }
+  .header h1 { font-size: 16px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+  .header h1 span { color: var(--text2); font-size: 12px; font-weight: 400; }
+  .header-actions { display: flex; gap: 8px; align-items: center; }
+
+  /* ── Tabs ── */
+  .tabs { display: flex; gap: 0; padding: 0; border-bottom: 2px solid var(--border); background: var(--bg2); overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab { padding: 14px 18px; cursor: pointer; font-size: 13px; font-weight: 500; color: var(--text2); border-bottom: 2px solid transparent; margin-bottom: -2px; white-space: nowrap; transition: all .2s; flex-shrink: 0; }
+  .tab.active { color: var(--blue); border-bottom-color: var(--blue); background: var(--blue-dim); }
+  .tab:hover:not(.active) { color: var(--text); background: var(--bg3); }
+
+  /* ── Main ── */
+  .main { padding: 16px; max-width: 1400px; margin: 0 auto; }
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* ── KPI Grid ── */
+  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-bottom: 24px; }
+  .kpi { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; position: relative; overflow: hidden; }
+  .kpi::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; border-radius: var(--radius) var(--radius) 0 0; }
+  .kpi.green::before { background: var(--green); }
+  .kpi.yellow::before { background: var(--yellow); }
+  .kpi.red::before { background: var(--red); }
+  .kpi.blue::before { background: var(--blue); }
+  .kpi.purple::before { background: var(--purple); }
+  .kpi-label { font-size: 11px; color: var(--text2); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 8px; }
+  .kpi-value { font-size: 26px; font-weight: 700; line-height: 1; }
+  .kpi-value.green { color: var(--green); }
+  .kpi-value.yellow { color: var(--yellow); }
+  .kpi-value.red { color: var(--red); }
+  .kpi-value.blue { color: var(--blue); }
+  .kpi-value.purple { color: var(--purple); }
+  .kpi-sub { font-size: 11px; color: var(--text2); margin-top: 6px; }
+  .kpi-sub b { color: var(--text); }
+
+  /* ── Alerts ── */
+  .alerts { display: flex; flex-direction: column; gap: 10px; margin-bottom: 24px; }
+  .alert { display: flex; align-items: flex-start; gap: 12px; padding: 14px 16px; border-radius: var(--radius-sm); border: 1px solid; font-size: 13px; }
+  .alert.red { background: var(--red-dim); border-color: var(--red); }
+  .alert.yellow { background: var(--yellow-dim); border-color: var(--yellow); }
+  .alert.green { background: var(--green-dim); border-color: var(--green); }
+  .alert-icon { font-size: 18px; line-height: 1; flex-shrink: 0; margin-top: 1px; }
+  .alert-body b { display: block; margin-bottom: 3px; font-size: 13px; }
+  .alert-body span { color: var(--text2); font-size: 12px; }
+
+  /* ── Grid 2 cols ── */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+  @media(max-width:900px) { .grid-2,.grid-3 { grid-template-columns:1fr; } }
+  @media(max-width:600px) {
+    .main { padding: 12px; }
+    .form-grid { grid-template-columns: 1fr; }
+    .channel-grid { grid-template-columns: 1fr 1fr; }
+    .kpi-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+    .kpi { padding: 14px; }
+    .kpi-value { font-size: 20px; }
+    .card { padding: 14px; }
+    .header h1 span { display: none; }
+    .chart-wrap { height: 180px; }
+    td, th { padding: 8px 8px; font-size: 12px; }
+    .tab { padding: 12px 14px; font-size: 12px; }
+    .btn { padding: 8px 14px; font-size: 12px; }
+  }
+
+  /* ── Cards ── */
+  .card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
+  .card-title { font-size: 13px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; }
+  .card-title span { color: var(--text); font-weight: 700; font-size: 14px; }
+
+  /* ── Form ── */
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .form-group { display: flex; flex-direction: column; gap: 6px; }
+  .form-group label { font-size: 12px; color: var(--text2); font-weight: 500; }
+  .form-group input, .form-group select {
+    background: var(--bg3); border: 1px solid var(--border); color: var(--text);
+    padding: 10px 12px; border-radius: var(--radius-sm); font-size: 14px;
+    transition: border-color .2s; outline: none;
+  }
+  .form-group input:focus, .form-group select:focus { border-color: var(--blue); }
+  .form-section { margin-bottom: 20px; }
+  .form-section-title { font-size: 11px; color: var(--text2); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+  .channel-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+
+  /* ── Buttons ── */
+  .btn { padding: 10px 20px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 600; cursor: pointer; border: none; transition: all .2s; display: inline-flex; align-items: center; gap: 8px; }
+  .btn-primary { background: var(--blue); color: #fff; }
+  .btn-primary:hover { background: #2563eb; transform: translateY(-1px); }
+  .btn-danger { background: var(--red-dim); color: var(--red); border: 1px solid var(--red); }
+  .btn-danger:hover { background: var(--red); color: #fff; }
+  .btn-ghost { background: transparent; color: var(--text2); border: 1px solid var(--border); }
+  .btn-ghost:hover { color: var(--text); border-color: var(--text2); }
+  .btn-full { width: 100%; justify-content: center; padding: 14px; font-size: 15px; }
+
+  /* ── Table ── */
+  .tbl-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { padding: 10px 12px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: var(--text2); border-bottom: 1px solid var(--border); white-space: nowrap; }
+  td { padding: 10px 12px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--bg3); }
+  .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+  .badge.green { background: var(--green-dim); color: var(--green); }
+  .badge.yellow { background: var(--yellow-dim); color: var(--yellow); }
+  .badge.red { background: var(--red-dim); color: var(--red); }
+
+  /* ── Progress bar ── */
+  .prog-wrap { margin-bottom: 12px; }
+  .prog-label { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 5px; }
+  .prog-label span:last-child { font-weight: 600; }
+  .prog-bar { height: 8px; background: var(--bg3); border-radius: 4px; overflow: hidden; }
+  .prog-fill { height: 100%; border-radius: 4px; transition: width .5s ease; }
+
+  /* ── Gauge ── */
+  .gauge-wrap { display: flex; flex-direction: column; align-items: center; padding: 8px 0; }
+  .gauge-value { font-size: 32px; font-weight: 800; margin-top: -10px; }
+  .gauge-label { font-size: 12px; color: var(--text2); margin-top: 4px; }
+
+  /* ── Divider ── */
+  .divider { height: 1px; background: var(--border); margin: 20px 0; }
+
+  /* ── Stat row ── */
+  .stat-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+  .stat-row:last-child { border-bottom: none; }
+  .stat-row .val { font-weight: 600; }
+  .stat-row .val.green { color: var(--green); }
+  .stat-row .val.red { color: var(--red); }
+  .stat-row .val.yellow { color: var(--yellow); }
+
+  /* ── Canvas ── */
+  .chart-wrap { position: relative; height: 220px; }
+
+  /* ── Empty state ── */
+  .empty { text-align: center; padding: 40px 20px; color: var(--text2); }
+  .empty .icon { font-size: 40px; margin-bottom: 12px; }
+  .empty p { font-size: 14px; }
+
+  /* ── Week selector ── */
+  .week-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+  .week-nav { display: flex; align-items: center; gap: 12px; }
+  .week-nav button { background: var(--bg2); border: 1px solid var(--border); color: var(--text); width: 32px; height: 32px; border-radius: var(--radius-sm); cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; }
+  .week-nav button:hover { border-color: var(--blue); color: var(--blue); }
+  .week-name { font-size: 16px; font-weight: 700; }
+
+  /* ── Tooltip ── */
+  .tooltip { position: relative; display: inline-block; }
+  .tooltip .tip { visibility: hidden; background: var(--bg3); border: 1px solid var(--border); padding: 8px 12px; border-radius: var(--radius-sm); font-size: 12px; white-space: nowrap; position: absolute; bottom: 120%; left: 50%; transform: translateX(-50%); z-index: 10; }
+  .tooltip:hover .tip { visibility: visible; }
+
+  /* ── Month summary pill ── */
+  .month-pill { background: var(--bg3); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; font-size: 13px; cursor: pointer; transition: border-color .2s; }
+  .month-pill:hover { border-color: var(--blue); }
+  .month-pill .left { display: flex; align-items: center; gap: 12px; }
+  .month-pill .month-name { font-weight: 600; min-width: 80px; }
+
+  /* ── Delete btn ── */
+  .del-btn { background: none; border: none; color: var(--text2); cursor: pointer; padding: 6px 8px; border-radius: 6px; font-size: 14px; opacity: 0; transition: all .2s; }
+  .del-btn:last-child { color: var(--red); }
+  tr:hover .del-btn { opacity: 1; }
+  /* En mobile siempre visible porque no hay hover */
+  @media(max-width:700px) { .del-btn { opacity: 0.6; } }
+</style>
+</head>
+<body>
+
+<!-- ════ LOGIN OVERLAY ════ -->
+<div id="loginOverlay" style="display:none;position:fixed;inset:0;background:linear-gradient(135deg,#1e3a5f 0%,#2563eb 100%);z-index:9999;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:16px;padding:40px 36px;width:min(380px,90vw);box-shadow:0 20px 60px #0003;text-align:center">
+    <div style="font-size:48px;margin-bottom:8px">🍕</div>
+    <div style="font-size:22px;font-weight:800;color:#1a202c;margin-bottom:4px">Prego Pizza</div>
+    <div style="font-size:13px;color:#6b7280;margin-bottom:28px">Panel de Control — Acceso privado</div>
+    <div style="text-align:left;margin-bottom:16px">
+      <label style="font-size:12px;color:#6b7280;font-weight:500;display:block;margin-bottom:6px">Contraseña</label>
+      <input type="password" id="loginPass" placeholder="••••••••"
+        style="width:100%;padding:12px 14px;border:2px solid #e5e7eb;border-radius:8px;font-size:15px;outline:none;box-sizing:border-box;color:#1a202c"
+        onkeydown="if(event.key==='Enter') intentarLogin()"
+        onfocus="this.style.borderColor='#2563eb'" onblur="this.style.borderColor='#e5e7eb'">
+    </div>
+    <div id="loginError" style="color:#dc2626;font-size:12px;margin-bottom:12px;display:none">Contraseña incorrecta. Intentá de nuevo.</div>
+    <button onclick="intentarLogin()" style="width:100%;background:#2563eb;color:#fff;border:none;padding:13px;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:16px">Ingresar →</button>
+    <div style="font-size:11px;color:#9ca3af">Si olvidaste la contraseña, podés cambiarla en ⚙️ Configuración</div>
+  </div>
+</div>
+
+<div id="appContent" style="display:none">
+
+<div class="header">
+  <h1>🍕 Prego Pizza <span>Panel de Control Semanal</span></h1>
+  <div class="header-actions">
+    <span id="syncStatus" style="font-size:11px;display:none;margin-right:4px"></span>
+    <span id="lastUpdate" style="font-size:12px;color:var(--text2)"></span>
+    <button class="btn btn-ghost" id="btnSync" onclick="conectarYSincronizar()" title="Sincronizar con Google Sheets" style="font-size:12px">☁ Sync</button>
+    <button class="btn btn-ghost" onclick="exportData()">⬇ Exportar</button>
+    <button class="btn btn-ghost" onclick="cerrarSesion()" style="font-size:12px" title="Cerrar sesión">🔒</button>
+  </div>
+</div>
+
+<div class="tabs">
+  <div class="tab active" onclick="showPage('dashboard')">📊 Dashboard</div>
+  <div class="tab" onclick="showPage('carga')">➕ Cargar Semana</div>
+  <div class="tab" onclick="showPage('historico')">📅 Histórico</div>
+  <div class="tab" onclick="showPage('proyeccion')">🎯 Proyección</div>
+  <div class="tab" onclick="showPage('resultados')">📈 Resultados</div>
+  <div class="tab" onclick="showPage('config')">⚙️ Configuración</div>
+</div>
+
+<!-- ════════════════ DASHBOARD ════════════════ -->
+<div class="main">
+<div id="page-dashboard" class="page active">
+
+  <div id="alertsBox" class="alerts"></div>
+
+  <div class="kpi-grid" id="kpiGrid"></div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">Venta semanal <span id="ventaRef" style="color:var(--yellow)">▬ Mínimo = BE ÷ días del mes</span></div>
+      <div class="chart-wrap"><canvas id="chartVenta"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">CMV % semanal <span>Límite: 34%</span></div>
+      <div class="chart-wrap"><canvas id="chartCMV"></canvas></div>
+    </div>
+  </div>
+
+  <div class="grid-3">
+    <div class="card">
+      <div class="card-title">Mix de canales — Último mes</div>
+      <div style="height:180px;display:flex;align-items:center;justify-content:center">
+        <canvas id="chartMix" style="max-width:180px;max-height:180px"></canvas>
+      </div>
+      <div id="mixLegend" style="margin-top:12px"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Progreso mes actual</div>
+      <div id="progMes"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Indicadores clave</div>
+      <div id="indicadores"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Saldo banco estimado</div>
+    <div class="chart-wrap"><canvas id="chartSaldo"></canvas></div>
+  </div>
+
+</div>
+
+<!-- ════════════════ CARGA ════════════════ -->
+<div id="page-carga" class="page">
+  <div style="max-width:740px;margin:0 auto;display:flex;flex-direction:column;gap:16px">
+
+    <!-- Ventas diarias -->
+    <div class="card">
+      <div class="card-title">💰 Venta diaria (Cierre Z por día)
+        <span style="font-size:12px;color:var(--text2);font-weight:400">semana del <span id="f_semLabel"></span></span>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+        <button onclick="semAnteriorCarga()" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);width:32px;height:32px;border-radius:var(--radius-sm);cursor:pointer;font-size:16px">‹</button>
+        <input type="date" id="f_semIni" onchange="buildDiaInputs()" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:var(--radius-sm);font-size:14px;outline:none">
+        <span style="font-size:12px;color:var(--text2)">inicio de semana</span>
+        <button onclick="semSiguienteCarga()" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);width:32px;height:32px;border-radius:var(--radius-sm);cursor:pointer;font-size:16px">›</button>
+      </div>
+
+      <div id="diasGrid" style="display:flex;flex-direction:column;gap:6px"></div>
+
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;padding-top:14px;border-top:2px solid var(--border)">
+        <span style="font-size:13px;color:var(--text2)">Total semana</span>
+        <span id="f_totalSem" style="font-size:20px;font-weight:800;color:var(--blue)">$0</span>
+      </div>
+
+      <div style="margin-top:6px">
+        <button class="btn btn-primary btn-full" onclick="guardarDias()" style="margin-top:8px">💾 Guardar venta diaria</button>
+        <div id="saveDiasMsg" style="margin-top:8px;text-align:center;font-size:13px;display:none"></div>
+      </div>
+    </div>
+
+    <!-- Datos semanales operativos -->
+    <div class="card">
+      <div class="card-title">📦 Datos operativos de la semana
+        <span style="font-size:11px;color:var(--text2);font-weight:400">Canales · CMV · Pagos · Saldo · Deuda</span>
+      </div>
+
+      <div class="form-section">
+        <div class="form-section-title">🛒 Composición de venta por canal</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div class="form-group">
+            <label>PedidosYa $</label>
+            <input type="number" id="f_peya" placeholder="ej: 78000" oninput="recalcCanales()">
+          </div>
+          <div class="form-group">
+            <label>Visa / Mastercard (Totalnet) $</label>
+            <input type="number" id="f_visa" placeholder="ej: 120000" oninput="recalcCanales()">
+          </div>
+          <div class="form-group">
+            <label>AMEX (Scotia) $</label>
+            <input type="number" id="f_amex" placeholder="ej: 16000" oninput="recalcCanales()">
+          </div>
+          <div class="form-group">
+            <label>Efectivo + Transferencias $</label>
+            <input type="number" id="f_efvo" placeholder="ej: 17000" oninput="recalcCanales()">
+          </div>
+        </div>
+        <div id="canalesResumen" style="display:none;margin-top:10px;background:var(--bg3);border-radius:8px;padding:10px;font-size:12px">
+          <div style="display:flex;gap:16px;flex-wrap:wrap" id="canalesDetalle"></div>
+          <div id="canalesTotalCheck" style="margin-top:6px;font-size:11px"></div>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <div class="form-section-title">📦 Compras y Pagos</div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Compra proveedores (recibido) $</label>
+            <input type="number" id="f_compra" placeholder="ej: 63000">
+          </div>
+          <div class="form-group">
+            <label>Pagado a proveedores (banco) $</label>
+            <input type="number" id="f_pagoProv" placeholder="ej: 70000">
+          </div>
+          <div class="form-group">
+            <label>Saldo banco al cierre $</label>
+            <input type="number" id="f_saldo" placeholder="ej: 45000">
+          </div>
+          <div class="form-group">
+            <label>Deuda proveedores estimada $</label>
+            <input type="number" id="f_deuda" placeholder="ej: 239000">
+          </div>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <div class="form-section-title">📝 Nota de la semana (opcional)</div>
+        <div class="form-group">
+          <input type="text" id="f_nota" placeholder="ej: CMV alto por compra extra, evento motos...">
+        </div>
+      </div>
+
+      <div class="form-section" id="scotiaSection" style="background:var(--blue-dim);border:1px solid var(--blue);border-radius:var(--radius-sm);padding:14px;margin-bottom:4px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <div class="form-section-title" style="margin-bottom:0;border:none;padding:0;color:var(--blue)">🏦 Liquidación AMEX/Scotia del mes (opcional)</div>
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;color:var(--text)">
+            <input type="checkbox" id="f_scotiaCheck" onchange="toggleScotia()" style="accent-color:var(--blue)"> Incluir esta semana
+          </label>
+        </div>
+        <div id="scotiaFields" style="display:none">
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Monto cobrado por Scotia $</label>
+              <input type="number" id="f_scotiaBruto" placeholder="ej: 76885">
+              <span style="font-size:11px;color:var(--text2)">Entra completo — sin descuentos ni retenciones</span>
+            </div>
+            <div class="form-group">
+              <label>Mes que corresponde</label>
+              <input type="month" id="f_scotiaMes">
+              <span style="font-size:11px;color:var(--text2)">El IVA lo pagás vos a DGI a fin de mes</span>
+            </div>
+          </div>
+          <input type="hidden" id="f_scotiaNeto" value="">
+          <input type="hidden" id="f_scotiaRetDGI" value="">
+        </div>
+      </div>
+
+      <button class="btn btn-primary btn-full" onclick="guardarSemana()">💾 Guardar datos operativos</button>
+      <div id="saveMsg" style="margin-top:12px;text-align:center;font-size:13px;display:none"></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ════════════════ HISTORICO ════════════════ -->
+<div id="page-historico" class="page">
+  <div class="card">
+    <div class="card-title">Historial de semanas cargadas <span id="countSemanas"></span></div>
+    <div class="tbl-wrap">
+      <table id="tablaHistorico">
+        <thead>
+          <tr>
+            <th>Período</th>
+            <th>Días</th>
+            <th>Venta</th>
+            <th>Venta/día</th>
+            <th>CMV %</th>
+            <th>PeYa %</th>
+            <th>Visa %</th>
+            <th>AMEX %</th>
+            <th>Saldo banco</th>
+            <th>Deuda prov.</th>
+            <th>Estado</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="tbodyHistorico"></tbody>
+      </table>
+      <div id="emptyHistorico" class="empty" style="display:none">
+        <div class="icon">📭</div>
+        <p>No hay semanas cargadas aún.<br>Usá la pestaña "Cargar Semana" para empezar.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid-2" style="margin-top:16px">
+    <div class="card">
+      <div class="card-title">Resumen por mes</div>
+      <div id="resumenMeses"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Evolución deuda proveedores</div>
+      <div class="chart-wrap"><canvas id="chartDeuda"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════ PROYECCION ════════════════ -->
+<div id="page-proyeccion" class="page">
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">Simulador de retiro mensual</div>
+      <div class="form-section" style="margin-bottom:16px">
+        <div class="form-group" style="margin-bottom:12px">
+          <label>Venta mensual esperada $</label>
+          <input type="number" id="sim_venta" value="950000" oninput="simular()">
+        </div>
+        <div class="form-group" style="margin-bottom:12px">
+          <label>% PedidosYa (actual: ~34%)</label>
+          <input type="number" id="sim_peya" value="34" min="0" max="100" oninput="simular()">
+        </div>
+        <div class="form-group" style="margin-bottom:12px">
+          <label>% CMV esperado (histórico: 32.3%)</label>
+          <input type="number" id="sim_cmv" value="32.3" step="0.1" oninput="simular()">
+        </div>
+      </div>
+      <div id="simResultado"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Tabla de break even</div>
+      <div id="tablaBreakeven"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Escenarios de retiro — Comparativa</div>
+    <div class="chart-wrap" style="height:260px"><canvas id="chartEscenarios"></canvas></div>
+  </div>
+
+  <div class="card" style="margin-top:16px">
+    <div class="card-title">Impacto de migrar clientes de PedidosYa a canal propio</div>
+    <div id="tablaPeya"></div>
+  </div>
+</div>
+
+
+<!-- ════════════════ CONFIGURACIÓN ════════════════ -->
+<div id="page-config" class="page">
+  <div style="max-width:720px;margin:0 auto">
+
+    <div class="card" style="margin-bottom:16px">
+      <div class="card-title">⚙️ Parámetros del negocio
+        <span id="configGuardadoMsg" style="color:var(--green);font-size:12px;display:none">✓ Guardado</span>
+      </div>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:20px">
+        Estos valores se usan en todas las alertas, el break even y las proyecciones. Actualizalos cuando cambien los costos, el mix de canales o las metas del negocio.
+      </p>
+
+      <div class="form-section">
+        <div class="form-section-title">💰 Estructura de costos</div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Costos fijos totales $/mes</label>
+            <input type="number" id="cfg_costosFijos" placeholder="382484">
+            <span style="font-size:11px;color:var(--text2)">Sueldos + alquiler + BPS + servicios + cuota préstamo</span>
+          </div>
+          <div class="form-group">
+            <label>CMV histórico % (sobre venta)</label>
+            <input type="number" id="cfg_cmvPct" placeholder="32.3" step="0.1" min="0" max="100">
+            <span style="font-size:11px;color:var(--text2)">Porcentaje histórico confirmado. Actual: 32.3%</span>
+          </div>
+          <div class="form-group">
+            <label>Tasa de conversión real %</label>
+            <input type="number" id="cfg_tasaConv" placeholder="71.0" step="0.1" min="0" max="100">
+            <span style="font-size:11px;color:var(--text2)">Lo que entra al banco vs lo que se vende. Actual: 71%</span>
+          </div>
+          <div class="form-group">
+            <label>Break even mensual $ <span style="color:var(--blue)">(auto)</span></label>
+            <input type="number" id="cfg_breakEven" placeholder="988331" style="background:var(--blue-dim);border-color:var(--blue)">
+            <span style="font-size:11px;color:var(--text2)">Se calcula solo o podés sobreescribirlo manualmente</span>
+          </div>
+        </div>
+        <div style="margin-top:12px">
+          <button class="btn btn-ghost" onclick="calcularBE()" style="font-size:12px;padding:7px 14px">🔄 Recalcular break even automático</button>
+          <span style="font-size:11px;color:var(--text2);margin-left:10px">= Costos fijos ÷ (Tasa conv % − CMV %)</span>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <div class="form-section-title">🚨 Límites de alerta</div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>CMV máximo antes de alerta %</label>
+            <input type="number" id="cfg_maxCMV" placeholder="34" step="0.1" min="0" max="100">
+            <span style="font-size:11px;color:var(--text2)">Alerta roja si la semana supera este %</span>
+          </div>
+          <div class="form-group">
+            <label>PedidosYa máximo %</label>
+            <input type="number" id="cfg_maxPeYa" placeholder="34" step="0.1" min="0" max="100">
+            <span style="font-size:11px;color:var(--text2)">Alerta amarilla si PeYa supera este % de la venta</span>
+          </div>
+          <div class="form-group">
+            <label>Saldo banco mínimo $</label>
+            <input type="number" id="cfg_minSaldo" placeholder="50000">
+            <span style="font-size:11px;color:var(--text2)">Alerta roja si el saldo cae debajo de este valor</span>
+          </div>
+          <div class="form-group">
+            <label>Deuda proveedores máxima $</label>
+            <input type="number" id="cfg_maxDeuda" placeholder="280000">
+            <span style="font-size:11px;color:var(--text2)">Alerta roja si la deuda supera este valor</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <div class="form-section-title">📊 Mix de canales (% de venta total)</div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>PedidosYa %</label>
+            <input type="number" id="cfg_peyaMix" placeholder="33.8" step="0.1" min="0" max="100">
+          </div>
+          <div class="form-group">
+            <label>Visa / Mastercard %</label>
+            <input type="number" id="cfg_visaMix" placeholder="51.9" step="0.1" min="0" max="100">
+          </div>
+          <div class="form-group">
+            <label>AMEX (Scotia) %</label>
+            <input type="number" id="cfg_amexMix" placeholder="7.0" step="0.1" min="0" max="100">
+          </div>
+          <div class="form-group">
+            <label>Efectivo + Transferencias %</label>
+            <input type="number" id="cfg_efvoMix" placeholder="7.3" step="0.1" min="0" max="100">
+          </div>
+        </div>
+        <div id="mixSuma" style="margin-top:10px;font-size:12px;padding:8px 12px;border-radius:6px;display:none"></div>
+        <div style="margin-top:8px;font-size:11px;color:var(--text2)">
+          Tasas netas fijas: PeYa 55% · Visa/Master 81.4% · AMEX 83.1% · Efectivo 100%
+        </div>
+      </div>
+
+      <div class="form-section">
+        <div class="form-section-title">🏷️ Nombre del negocio</div>
+        <div class="form-group" style="max-width:320px">
+          <label>Nombre que aparece en el header</label>
+          <input type="text" id="cfg_nombre" placeholder="Prego Pizza">
+        </div>
+      </div>
+
+      <div class="form-section">
+        <div class="form-section-title">🔒 Seguridad</div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Nueva contraseña</label>
+            <input type="password" id="cfg_pass1" placeholder="Nueva contraseña" autocomplete="new-password">
+          </div>
+          <div class="form-group">
+            <label>Repetir contraseña</label>
+            <input type="password" id="cfg_pass2" placeholder="Repetir">
+          </div>
+        </div>
+        <div style="font-size:11px;color:var(--text2);margin-top:6px">Dejá vacío para no cambiar la contraseña actual. Mínimo 4 caracteres.</div>
+      </div>
+
+      <button class="btn btn-primary btn-full" onclick="guardarConfig()" style="margin-top:4px">💾 Guardar configuración</button>
+    </div>
+
+    <div class="card" style="margin-bottom:16px">
+      <div class="card-title">📋 Valores actuales en uso</div>
+      <div id="configActual"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title" style="color:var(--red)">⚠️ Zona peligrosa</div>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:16px">Acciones irreversibles. Usá con cuidado.</p>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn btn-danger" onclick="resetConfig()">🔄 Restaurar configuración por defecto</button>
+        <button class="btn btn-danger" onclick="borrarTodosDatos()">🗑 Borrar todos los datos de semanas</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+
+<!-- ════════════════ RESULTADOS ════════════════ -->
+<div id="page-resultados" class="page">
+<div style="max-width:1100px;margin:0 auto">
+
+  <!-- Selector mes + acciones -->
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px">
+    <div style="display:flex;align-items:center;gap:10px">
+      <button onclick="mesAnterior()" style="background:var(--bg2);border:1px solid var(--border);color:var(--text);width:36px;height:36px;border-radius:var(--radius-sm);cursor:pointer;font-size:18px">‹</button>
+      <div id="resMesLabel" style="font-size:18px;font-weight:700;min-width:140px;text-align:center"></div>
+      <button onclick="mesSiguiente()" style="background:var(--bg2);border:1px solid var(--border);color:var(--text);width:36px;height:36px;border-radius:var(--radius-sm);cursor:pointer;font-size:18px">›</button>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-ghost" onclick="editarCostosMes()" style="font-size:12px">✏️ Ajustar costos del mes</button>
+      <button class="btn btn-primary" onclick="showPage('anual')" style="font-size:12px">📊 Ver resumen anual →</button>
+    </div>
+  </div>
+
+  <!-- KPIs rápidos del mes -->
+  <div id="resKPIs" class="kpi-grid" style="margin-bottom:20px"></div>
+
+  <div class="grid-2" style="margin-bottom:20px">
+
+    <!-- Estado de resultados -->
+    <div class="card">
+      <div class="card-title">Estado de Resultados
+        <span id="resMesVsBE" style="font-size:12px"></span>
+      </div>
+      <div id="resEstado"></div>
+    </div>
+
+    <!-- Comparación vs mes anterior -->
+    <div class="card">
+      <div class="card-title">Comparación <span id="resCompLabel" style="font-size:12px;color:var(--text2)"></span></div>
+      <div id="resComparacion"></div>
+      <div style="margin-top:16px">
+        <div class="card-title" style="margin-bottom:12px">Semanas del mes</div>
+        <div id="resSemanas"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Gráfico tendencia -->
+  <div class="card" style="margin-bottom:20px">
+    <div class="card-title">Evolución mensual — últimos 12 meses</div>
+    <div class="chart-wrap" style="height:240px"><canvas id="chartMensual"></canvas></div>
+  </div>
+
+  <!-- Costos fijos del mes -->
+  <div class="card" style="margin-bottom:20px">
+    <div class="card-title">Costos fijos aplicados al mes
+      <span id="resCostosNota" style="font-size:11px;color:var(--text2)"></span>
+    </div>
+    <div id="resCostos"></div>
+  </div>
+
+  <!-- Análisis y Recomendaciones -->
+  <div class="card" id="resAnalisisCard" style="margin-bottom:20px;display:none">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div class="card-title" style="margin:0">🧠 Análisis y Recomendaciones</div>
+      <button class="btn btn-ghost" onclick="exportPDFResultados()" style="font-size:12px">📄 Exportar PDF</button>
+    </div>
+    <div id="resAnalisisContenido"></div>
+  </div>
+
+  <div id="resSinDatos" class="empty" style="display:none">
+    <div class="icon">📭</div>
+    <p>No hay semanas cargadas para este mes.<br>Cargá semanas desde la pestaña "Cargar Semana".</p>
+  </div>
+
+</div>
+</div>
+
+<!-- ════════════════ ANUAL ════════════════ -->
+<div id="page-anual" class="page">
+<div style="max-width:1100px;margin:0 auto">
+
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px">
+    <div style="display:flex;align-items:center;gap:10px">
+      <button onclick="anoAnterior()" style="background:var(--bg2);border:1px solid var(--border);color:var(--text);width:36px;height:36px;border-radius:var(--radius-sm);cursor:pointer;font-size:18px">‹</button>
+      <div id="anualAnoLabel" style="font-size:18px;font-weight:700;min-width:80px;text-align:center"></div>
+      <button onclick="anoSiguiente()" style="background:var(--bg2);border:1px solid var(--border);color:var(--text);width:36px;height:36px;border-radius:var(--radius-sm);cursor:pointer;font-size:18px">›</button>
+    </div>
+    <button class="btn btn-ghost" onclick="showPage('resultados')" style="font-size:12px">← Volver a mensual</button>
+  </div>
+
+  <!-- KPIs anuales -->
+  <div id="anualKPIs" class="kpi-grid" style="margin-bottom:20px"></div>
+
+  <!-- Tabla mensual anual -->
+  <div class="card" style="margin-bottom:20px">
+    <div class="card-title">Resumen mes a mes</div>
+    <div class="tbl-wrap"><table id="tablaAnual">
+      <thead><tr>
+        <th>Mes</th><th>Venta</th><th>Ing. Banco</th><th>CMV %</th>
+        <th>Margen Bruto</th><th>Costos Fijos</th><th>Flujo Neto</th>
+        <th>vs BE</th><th>Estado</th>
+      </tr></thead>
+      <tbody id="tbodyAnual"></tbody>
+    </table></div>
+  </div>
+
+  <!-- Gráficos anuales -->
+  <div class="grid-2" style="margin-bottom:20px">
+    <div class="card">
+      <div class="card-title">Venta vs Break Even mensual</div>
+      <div class="chart-wrap" style="height:220px"><canvas id="chartAnualVenta"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Flujo neto mensual</div>
+      <div class="chart-wrap" style="height:220px"><canvas id="chartAnualFlujo"></canvas></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">CMV % — tendencia anual</div>
+    <div class="chart-wrap" style="height:200px"><canvas id="chartAnualCMV"></canvas></div>
+  </div>
+
+</div>
+</div>
+
+</div><!-- /main -->
+
+
+<!-- ══ MODAL EDICION ══ -->
+<div id="modalOverlay" style="display:none;position:fixed;inset:0;background:#000a;z-index:200;align-items:center;justify-content:center">
+  <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:28px;width:min(680px,95vw);max-height:90vh;overflow-y:auto;position:relative">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+      <h2 style="font-size:16px;font-weight:700">✏️ Editar semana</h2>
+      <button onclick="closeModal()" style="background:none;border:none;color:var(--text2);font-size:22px;cursor:pointer;line-height:1">×</button>
+    </div>
+
+    <div class="form-section">
+      <div class="form-section-title">📅 Período</div>
+      <div class="form-grid">
+        <div class="form-group"><label>Fecha inicio</label><input type="date" id="e_fechaIni"></div>
+        <div class="form-group"><label>Fecha fin</label><input type="date" id="e_fechaFin"></div>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <div class="form-section-title">💰 Ventas</div>
+      <div class="form-grid">
+        <div class="form-group"><label>Venta total $</label><input type="number" id="e_venta"></div>
+        <div class="form-group"><label>Días trabajados</label><input type="number" id="e_dias" min="1" max="7"></div>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <div class="form-section-title">🛒 Canales</div>
+      <div class="channel-grid">
+        <div class="form-group"><label>PedidosYa $</label><input type="number" id="e_peya"></div>
+        <div class="form-group"><label>Visa/Master $</label><input type="number" id="e_visa"></div>
+        <div class="form-group"><label>AMEX $</label><input type="number" id="e_amex"></div>
+        <div class="form-group"><label>Efectivo + Transf $</label><input type="number" id="e_efvo"></div>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <div class="form-section-title">📦 Compras y pagos</div>
+      <div class="form-grid">
+        <div class="form-group"><label>Compra proveedores $</label><input type="number" id="e_compra"></div>
+        <div class="form-group"><label>Pagado a proveedores $</label><input type="number" id="e_pagoProv"></div>
+        <div class="form-group"><label>Saldo banco $</label><input type="number" id="e_saldo"></div>
+        <div class="form-group"><label>Deuda proveedores $</label><input type="number" id="e_deuda"></div>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <div class="form-section-title">📝 Nota</div>
+      <div class="form-group"><input type="text" id="e_nota"></div>
+    </div>
+
+    <div class="form-section" style="background:var(--blue-dim);border:1px solid var(--blue);border-radius:var(--radius-sm);padding:14px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div class="form-section-title" style="margin-bottom:0;border:none;padding:0;color:var(--blue)">🏦 Liquidación AMEX/Scotia (opcional)</div>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;color:var(--text)">
+          <input type="checkbox" id="e_scotiaCheck" onchange="toggleEditScotia()" style="accent-color:var(--blue)"> Incluir
+        </label>
+      </div>
+      <div id="e_scotiaFields" style="display:none;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="form-group"><label>Bruto Scotia $</label><input type="number" id="e_scotiaBruto"></div>
+        <div class="form-group"><label>Neto cobrado $</label><input type="number" id="e_scotiaNeto"></div>
+        <div class="form-group"><label>Retenciones DGI $</label><input type="number" id="e_scotiaRetDGI"></div>
+        <div class="form-group"><label>Mes</label><input type="month" id="e_scotiaMes"></div>
+      </div>
+    </div>
+
+    <input type="hidden" id="e_id">
+    <div style="display:flex;gap:10px;margin-top:4px">
+      <button class="btn btn-primary" style="flex:1;justify-content:center;padding:13px" onclick="guardarEdicion()">💾 Guardar cambios</button>
+      <button class="btn btn-ghost" style="padding:13px 20px" onclick="closeModal()">Cancelar</button>
+    </div>
+    <div id="editMsg" style="margin-top:10px;text-align:center;font-size:13px;display:none"></div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════
+// STORAGE
+// ══════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════
+// GOOGLE SHEETS CONFIG
+// ══════════════════════════════════════════════════════
+const GOOGLE_CLIENT_ID = '257713200862-9tdat84cn7p16fqpp9des66vutvgpfdk.apps.googleusercontent.com';
+const SHEET_ID         = '1igC88T1PTnF2OyOmsaayvV5g_Ae5n4at1e0I3shLUrk';
+const SCOPES           = 'https://www.googleapis.com/auth/spreadsheets';
+
+// Hojas dentro del Spreadsheet
+const SHEET_SEMANAS  = 'Semanas';
+const SHEET_DIAS     = 'VentasDia';
+const SHEET_CONFIG   = 'Configuracion';
+const SHEET_COSTOS   = 'CostosMes';
+
+let gToken = null;          // access token activo
+let gSyncPending = false;   // hay cambios locales sin sincronizar
+
+// ── Google Auth ─────────────────────────────────────────────────
+function iniciarGoogleAuth(callback) {
+  const client = google.accounts.oauth2.initTokenClient({
+    client_id: GOOGLE_CLIENT_ID,
+    scope: SCOPES,
+    callback: (resp) => {
+      if (resp.error) { console.error('Google auth error:', resp); return; }
+      gToken = resp.access_token;
+      if (callback) callback();
+    }
+  });
+  client.requestAccessToken({ prompt: '' }); // sin popup si ya autorizó antes
+}
+
+function tokenHeader() {
+  return { 'Authorization': 'Bearer ' + gToken, 'Content-Type': 'application/json' };
+}
+
+// ── Asegurar que las hojas existen ──────────────────────────────
+async function asegurarHojas() {
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}?fields=sheets.properties.title`;
+  const r = await fetch(url, { headers: tokenHeader() });
+  const d = await r.json();
+  const existing = (d.sheets||[]).map(s => s.properties.title);
+  const needed   = [SHEET_SEMANAS, SHEET_DIAS, SHEET_CONFIG, SHEET_COSTOS];
+  const toCreate = needed.filter(n => !existing.includes(n));
+  if (!toCreate.length) return;
+  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}:batchUpdate`, {
+    method: 'POST', headers: tokenHeader(),
+    body: JSON.stringify({ requests: toCreate.map(t => ({ addSheet: { properties: { title: t } } })) })
+  });
+}
+
+// ── Leer hoja completa ──────────────────────────────────────────
+async function leerHoja(sheet) {
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(sheet)}`;
+  const r = await fetch(url, { headers: tokenHeader() });
+  const d = await r.json();
+  return d.values || [];
+}
+
+// ── Escribir hoja completa (reemplaza todo) ─────────────────────
+async function escribirHoja(sheet, values) {
+  // Primero limpiar
+  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(sheet)}:clear`, {
+    method: 'POST', headers: tokenHeader()
+  });
+  if (!values.length) return;
+  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(sheet)}?valueInputOption=RAW`, {
+    method: 'PUT', headers: tokenHeader(),
+    body: JSON.stringify({ range: sheet, majorDimension: 'ROWS', values })
+  });
+}
+
+// ══════════════════════════════════════════════════════
+// SYNC: LOCAL ↔ GOOGLE SHEETS
+// ══════════════════════════════════════════════════════
+
+// Sube todo al Sheets
+async function syncSubir() {
+  if (!gToken) return;
+  try {
+    await asegurarHojas();
+
+    // Semanas
+    const semanas = loadData();
+    const rowsSem = semanas.map(s => [JSON.stringify(s)]);
+    await escribirHoja(SHEET_SEMANAS, rowsSem.length ? [['data'], ...rowsSem] : [['data']]);
+
+    // Ventas diarias
+    const dias = loadVentasDia();
+    const rowsDias = Object.entries(dias).map(([k,v]) => [k, JSON.stringify(v)]);
+    await escribirHoja(SHEET_DIAS, rowsDias.length ? [['fecha','data'], ...rowsDias] : [['fecha','data']]);
+
+    // Config
+    const cfg = loadConfig();
+    await escribirHoja(SHEET_CONFIG, [['key','value'], ['config', JSON.stringify(cfg)]]);
+
+    // Costos mensuales
+    const costos = JSON.parse(localStorage.getItem('prego_costos_mes_v1') || '{}');
+    await escribirHoja(SHEET_COSTOS, [['key','value'], ['costos', JSON.stringify(costos)]]);
+
+    gSyncPending = false;
+    mostrarSyncStatus('✓ Sincronizado con Google Sheets', 'green');
+  } catch(e) {
+    console.error('Sync error:', e);
+    mostrarSyncStatus('⚠ Error al sincronizar — datos guardados localmente', 'yellow');
+  }
+}
+
+// Baja todo desde Sheets y pisa el local
+async function syncBajar() {
+  if (!gToken) return;
+  try {
+    await asegurarHojas();
+
+    // Semanas
+    const rowsSem = await leerHoja(SHEET_SEMANAS);
+    if (rowsSem.length > 1) {
+      const semanas = rowsSem.slice(1).map(r => { try { return JSON.parse(r[0]); } catch(e) { return null; } }).filter(Boolean);
+      saveData(semanas);
+    }
+
+    // Ventas diarias
+    const rowsDias = await leerHoja(SHEET_DIAS);
+    if (rowsDias.length > 1) {
+      const dias = {};
+      rowsDias.slice(1).forEach(r => { try { dias[r[0]] = JSON.parse(r[1]); } catch(e) {} });
+      saveVentasDia(dias);
+    }
+
+    // Config
+    const rowsCfg = await leerHoja(SHEET_CONFIG);
+    const cfgRow = rowsCfg.find(r => r[0] === 'config');
+    if (cfgRow) { try { localStorage.setItem('pizzeria_config_v1', cfgRow[1]); } catch(e) {} }
+
+    // Costos
+    const rowsCostos = await leerHoja(SHEET_COSTOS);
+    const costosRow = rowsCostos.find(r => r[0] === 'costos');
+    if (costosRow) { try { localStorage.setItem('prego_costos_mes_v1', costosRow[1]); } catch(e) {} }
+
+    mostrarSyncStatus('✓ Datos actualizados desde Google Sheets', 'green');
+    renderDashboard();
+  } catch(e) {
+    console.error('Sync bajar error:', e);
+    mostrarSyncStatus('⚠ No se pudo bajar datos — usando copia local', 'yellow');
+  }
+}
+
+function mostrarSyncStatus(msg, color) {
+  const el = document.getElementById('syncStatus');
+  if (!el) return;
+  el.textContent = msg;
+  el.style.color = color === 'green' ? 'var(--green)' : color === 'yellow' ? 'var(--yellow)' : 'var(--red)';
+  el.style.display = 'inline';
+  setTimeout(() => el.style.display = 'none', 4000);
+}
+
+// Wrapper: guardar local Y subir a Sheets
+function saveDataSync(data) {
+  saveData(data);
+  if (gToken) syncSubir(); else gSyncPending = true;
+}
+function saveVentasDiaSync(data) {
+  saveVentasDia(data);
+  if (gToken) syncSubir(); else gSyncPending = true;
+}
+
+const STORAGE_KEY      = 'pizzeria_semanas_v2';
+const VENTAS_DIA_KEY   = 'prego_ventas_dia_v1';
+
+function loadVentasDia() {
+  try { return JSON.parse(localStorage.getItem(VENTAS_DIA_KEY) || '{}'); } catch(e) { return {}; }
+}
+function saveVentasDia(data) {
+  localStorage.setItem(VENTAS_DIA_KEY, JSON.stringify(data));
+}
+// Retorna venta de un día específico o null
+function getVentaDia(fecha) {
+  return loadVentasDia()[fecha] || null;
+}
+// Guarda/actualiza venta de un día
+function setVentaDia(fecha, venta, peya, visa, amex, efvo) {
+  const all = loadVentasDia();
+  if (venta) {
+    all[fecha] = { venta: parseFloat(venta), peya: parseFloat(peya)||null, visa: parseFloat(visa)||null, amex: parseFloat(amex)||null, efvo: parseFloat(efvo)||null };
+  } else {
+    delete all[fecha];
+  }
+  saveVentasDia(all);
+}
+// Suma ventas de un mes dado "YYYY-MM"
+function ventasMes(mes) {
+  const all = loadVentasDia();
+  return Object.entries(all)
+    .filter(([fecha]) => fecha.slice(0,7) === mes)
+    .reduce((acc, [, d]) => ({
+      venta: acc.venta + d.venta,
+      peya:  acc.peya  + (d.peya||0),
+      visa:  acc.visa  + (d.visa||0),
+      amex:  acc.amex  + (d.amex||0),
+      efvo:  acc.efvo  + (d.efvo||0),
+      dias:  acc.dias  + 1,
+    }), { venta:0, peya:0, visa:0, amex:0, efvo:0, dias:0 });
+}
+const COSTOS_MES_KEY   = 'prego_costos_mes_v1';
+
+function loadCostosMes() {
+  try { return JSON.parse(localStorage.getItem(COSTOS_MES_KEY) || '{}'); } catch(e) { return {}; }
+}
+function saveCostosMes(data) {
+  localStorage.setItem(COSTOS_MES_KEY, JSON.stringify(data));
+}
+
+// Costos fijos detallados por defecto (del análisis real)
+const COSTOS_DETALLE_DEFAULT = [
+  { label: 'Sueldos en mano',        cat: 'Laboral',      monto: 169000 },
+  { label: 'BPS (aportes patronal)', cat: 'Laboral',      monto: 62080  },
+  { label: 'Alquiler (USD 1.500)',   cat: 'Ocupación',    monto: 63000  },
+  { label: 'Cuota préstamo USD',     cat: 'Financiero',   monto: 24780  },
+  { label: 'DGI (neto mensual)',     cat: 'Impuestos',    monto: 15000  },
+  { label: 'UTE',                    cat: 'Servicios',    monto: 9000   },
+  { label: 'OSE',                    cat: 'Servicios',    monto: 4000   },
+  { label: 'ANTEL',                  cat: 'Servicios',    monto: 2500   },
+  { label: 'Prosegur alarma',        cat: 'Seguridad',    monto: 3250   },
+  { label: 'Fumigación',             cat: 'Mantenimiento',monto: 4092   },
+  { label: 'Recolección residuos',   cat: 'Mantenimiento',monto: 1880   },
+  { label: 'Contador',               cat: 'Admin',        monto: 7350   },
+  { label: 'ICG software',           cat: 'Admin',        monto: 3660   },
+  { label: 'BSE seguro banco',       cat: 'Seguros',      monto: 3000   },
+  { label: 'Sura seguro local',      cat: 'Seguros',      monto: 1428   },
+  { label: 'Comisión banco',         cat: 'Bancario',     monto: 2200   },
+  { label: 'Tributos domiciliarios', cat: 'Impuestos',    monto: 2800   },
+  { label: 'Directv / streaming',    cat: 'Admin',        monto: 840    },
+  { label: 'Eme uno / Tele 6/10',    cat: 'Admin',        monto: 1424   },
+  { label: 'Carga celular',          cat: 'Admin',        monto: 200    },
+];
+
+function loadData() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch(e) { return []; }
+}
+
+function saveData(data) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+}
+
+// ══════════════════════════════════════════════════════
+// CONSTANTS
+// ══════════════════════════════════════════════════════
+const DEFAULTS = {
+  costosFijos: 382484,
+  cmvPct: 0.323,
+  tasaConv: 0.710,
+  maxCMV: 0.34,
+  maxPeYaPct: 0.34,
+  maxDeuda: 280000,
+  minSaldo: 50000,
+  breakEven: 988331,
+  peyaMix: 0.338,
+  visaMix: 0.519,
+  amexMix: 0.070,
+  efvoMix: 0.073,
+  nombre: 'Prego Pizza',
+};
+
+function loadConfig() {
+  try {
+    const raw = localStorage.getItem('pizzeria_config_v1');
+    return raw ? { ...DEFAULTS, ...JSON.parse(raw) } : { ...DEFAULTS };
+  } catch(e) { return { ...DEFAULTS }; }
+}
+
+function saveConfig(cfg) {
+  localStorage.setItem('pizzeria_config_v1', JSON.stringify(cfg));
+}
+
+let PARAMS = loadConfig();
+
+// Días reales de cada mes
+function diasEnMes(fechaStr) {
+  const d = new Date(fechaStr + 'T00:00:00');
+  return new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+}
+// Objetivo diario = BE / días del mes
+function objetivoDiario(fechaIni) {
+  return PARAMS.breakEven / diasEnMes(fechaIni);
+}
+// Texto para alertas
+function textoObjetivoDia(fechaIni) {
+  const dias = diasEnMes(fechaIni);
+  const obj = PARAMS.breakEven / dias;
+  const meses = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const d = new Date(fechaIni + 'T00:00:00');
+  return fmt$(obj) + '/día — ' + fmt$(PARAMS.breakEven) + ' ÷ ' + dias + ' días de ' + meses[d.getMonth()];
+}
+
+// Canal neto
+function calcIngresoBanco(venta, peyaPct, visaPct, amexPct, efvoPct) {
+  const py = peyaPct != null ? peyaPct : PARAMS.peyaMix;
+  const vi = visaPct != null ? visaPct : PARAMS.visaMix;
+  const am = amexPct != null ? amexPct : PARAMS.amexMix;
+  const ef = efvoPct != null ? efvoPct : PARAMS.efvoMix;
+  return venta * (py*0.55 + vi*0.814 + am*0.831 + ef*1.0);
+}
+
+// ══════════════════════════════════════════════════════
+// NAVIGATION
+// ══════════════════════════════════════════════════════
+let charts = {};
+let cargaSemIni = ''; // se inicializa en init
+
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('page-' + id).classList.add('active');
+  document.querySelectorAll('.tab').forEach(t => {
+    if (t.onclick.toString().includes(id)) t.classList.add('active');
+  });
+  if (id === 'carga') { setTimeout(buildDiaInputs, 50); }
+  if (id === 'dashboard') renderDashboard();
+  if (id === 'historico') renderHistorico();
+  if (id === 'proyeccion') renderProyeccion();
+  if (id === 'config') renderConfig();
+  if (id === 'resultados') renderResultados();
+  if (id === 'anual') renderAnual();
+}
+
+// ══════════════════════════════════════════════════════
+// FORMAT
+// ══════════════════════════════════════════════════════
+function fmt$(n) { if (n == null) return '—'; return '$' + Math.round(n).toLocaleString('es-UY'); }
+function fmtPct(n) { if (n == null) return '—'; return (n*100).toFixed(1) + '%'; }
+function colorVal(v, good, warn) {
+  if (v >= good) return 'green';
+  if (v >= warn) return 'yellow';
+  return 'red';
+}
+
+// ══════════════════════════════════════════════════════
+// CARGA DIARIA
+// ══════════════════════════════════════════════════════
+const DIAS_NOMBRE = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+
+// Devuelve lunes de la semana que contiene 'fecha' (string YYYY-MM-DD)
+function lunesDe(fecha) {
+  const d = new Date(fecha + 'T12:00:00');
+  const dow = d.getDay(); // 0=dom
+  d.setDate(d.getDate() - ((dow + 6) % 7));
+  return d.toISOString().slice(0,10);
+}
+
+// cargaSemIni se inicializa en el init global (ver abajo)
+
+function semAnteriorCarga() {
+  const d = new Date(cargaSemIni + 'T12:00:00');
+  d.setDate(d.getDate() - 7);
+  cargaSemIni = d.toISOString().slice(0,10);
+  document.getElementById('f_semIni').value = cargaSemIni;
+  buildDiaInputs();
+}
+function semSiguienteCarga() {
+  const d = new Date(cargaSemIni + 'T12:00:00');
+  d.setDate(d.getDate() + 7);
+  cargaSemIni = d.toISOString().slice(0,10);
+  document.getElementById('f_semIni').value = cargaSemIni;
+  buildDiaInputs();
+}
+
+function buildDiaInputs() {
+  const semInp = document.getElementById('f_semIni');
+  if (!semInp) return;
+  const ini = semInp.value || cargaSemIni || new Date().toISOString().slice(0,10);
+  cargaSemIni = lunesDe(ini);
+  semInp.value = cargaSemIni;
+
+  const ventas = loadVentasDia();
+  const grid = document.getElementById('diasGrid');
+  if (!grid) return;
+
+  let html = '';
+  let total = 0;
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(cargaSemIni + 'T12:00:00');
+    d.setDate(d.getDate() + i);
+    const fecha = d.toISOString().slice(0,10);
+    const dow   = DIAS_NOMBRE[d.getDay()];
+    const dd    = d.getDate().toString().padStart(2,'0');
+    const mm    = (d.getMonth()+1).toString().padStart(2,'0');
+    const saved = ventas[fecha];
+    const v     = saved ? saved.venta : '';
+    if (saved) total += saved.venta;
+
+    // Detectar cambio de mes para visual
+    const esPrimero = dd === '01';
+    html += `
+      <div style="display:grid;grid-template-columns:90px 1fr;align-items:center;gap:10px;padding:6px 10px;border-radius:8px;background:${saved?'var(--green-dim)':'var(--bg3)'};${esPrimero?'border-top:2px solid var(--blue);':''}">
+        <div style="font-size:13px">
+          <span style="font-weight:600;color:${saved?'var(--green)':'var(--text)'}">${dow}</span>
+          <span style="color:var(--text2);font-size:12px;margin-left:4px">${dd}/${mm}</span>
+          ${esPrimero ? '<span style="font-size:10px;color:var(--blue);display:block">▲ nuevo mes</span>' : ''}
+        </div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <span style="color:var(--text2);font-size:13px">$</span>
+          <input type="number" id="dia_${fecha}" value="${v}" placeholder="0"
+            style="flex:1;background:var(--bg2);border:1px solid var(--border);color:var(--text);padding:8px 10px;border-radius:6px;font-size:14px;outline:none;min-width:0"
+            oninput="recalcTotalSem()" onfocus="this.select()">
+          ${saved ? '<span style="color:var(--green);font-size:16px" title="Guardado">✓</span>' : ''}
+        </div>
+      </div>`;
+  }
+
+  grid.innerHTML = html;
+
+  // Label semana
+  const fin = new Date(cargaSemIni + 'T12:00:00');
+  fin.setDate(fin.getDate() + 6);
+  const fmtD = d => d.getDate().toString().padStart(2,'0') + '/' + (d.getMonth()+1).toString().padStart(2,'0');
+  const ini2 = new Date(cargaSemIni + 'T12:00:00');
+  document.getElementById('f_semLabel').textContent = fmtD(ini2) + ' al ' + fmtD(fin);
+
+  recalcTotalSem();
+  precargarOperativos();
+}
+
+function precargarOperativos() {
+  // Buscar si ya existe un registro operativo para esta semana
+  const data = loadData();
+  const sem = data.find(s => s.fechaIni === cargaSemIni);
+  if (!sem) {
+    // No hay datos guardados — resetear el form y el botón
+    ['f_peya','f_visa','f_amex','f_efvo','f_compra','f_pagoProv','f_saldo','f_deuda','f_nota'].forEach(id => {
+      const el = document.getElementById(id); if (el) el.value = '';
+    });
+    document.getElementById('canalesResumen').style.display = 'none';
+    document.getElementById('f_scotiaCheck').checked = false;
+    document.getElementById('scotiaFields').style.display = 'none';
+    const btn = document.querySelector('#page-carga .btn-primary[onclick="guardarSemana()"]');
+    if (btn) { btn.textContent = '💾 Guardar datos operativos'; btn.style.background = ''; }
+    return;
+  }
+
+  // Precargar canales
+  document.getElementById('f_peya').value  = sem.peya  || '';
+  document.getElementById('f_visa').value  = sem.visa  || '';
+  document.getElementById('f_amex').value  = sem.amex  || '';
+  document.getElementById('f_efvo').value  = sem.efvo  || '';
+  recalcCanales();
+
+  // Precargar compras y pagos
+  document.getElementById('f_compra').value   = sem.compra   || '';
+  document.getElementById('f_pagoProv').value = sem.pagoProv || '';
+  document.getElementById('f_saldo').value    = sem.saldo    || '';
+  document.getElementById('f_deuda').value    = sem.deuda    || '';
+  document.getElementById('f_nota').value     = sem.nota     || '';
+
+  // Precargar Scotia si existía
+  if (sem.scotiaBruto) {
+    document.getElementById('f_scotiaCheck').checked = true;
+    document.getElementById('scotiaFields').style.display = 'grid';
+    document.getElementById('scotiaFields').style.gridTemplateColumns = '1fr 1fr';
+    document.getElementById('f_scotiaBruto').value = sem.scotiaBruto || '';
+    document.getElementById('f_scotiaMes').value   = sem.scotiaMes   || '';
+  } else {
+    document.getElementById('f_scotiaCheck').checked = false;
+    document.getElementById('scotiaFields').style.display = 'none';
+  }
+
+  // Mostrar badge "ya guardado" en el botón
+  const btn = document.querySelector('#page-carga .btn-primary[onclick="guardarSemana()"]');
+  if (btn) {
+    btn.textContent = '💾 Actualizar datos operativos';
+    btn.style.background = 'var(--green)';
+  }
+}
+
+function recalcTotalSem() {
+  let total = 0;
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(cargaSemIni + 'T12:00:00');
+    d.setDate(d.getDate() + i);
+    const fecha = d.toISOString().slice(0,10);
+    const inp = document.getElementById('dia_' + fecha);
+    if (inp) total += parseFloat(inp.value) || 0;
+  }
+  const el = document.getElementById('f_totalSem');
+  if (el) el.textContent = '$' + Math.round(total).toLocaleString('es-UY');
+}
+
+function guardarDias() {
+  let saved = 0;
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(cargaSemIni + 'T12:00:00');
+    d.setDate(d.getDate() + i);
+    const fecha = d.toISOString().slice(0,10);
+    const inp = document.getElementById('dia_' + fecha);
+    if (!inp) continue;
+    const v = parseFloat(inp.value) || 0;
+    if (v > 0) { setVentaDia(fecha, v); saved++; }
+  }
+  const msg = document.getElementById('saveDiasMsg');
+  msg.textContent = saved > 0 ? `✅ ${saved} días guardados.` : '⚠ Ingresá al menos un valor.';
+  msg.style.color  = saved > 0 ? 'var(--green)' : 'var(--yellow)';
+  msg.style.display = 'block';
+  setTimeout(() => { msg.style.display = 'none'; buildDiaInputs(); }, 1500);
+  if (saved > 0) {
+    document.getElementById('lastUpdate').textContent = 'Último guardado: ' + new Date().toLocaleDateString('es-UY');
+    marcarPendiente();
+    renderDashboard();
+  }
+}
+
+// ══════════════════════════════════════════════════════
+// GUARDAR SEMANA (datos operativos: CMV, pagos, saldo)
+// ══════════════════════════════════════════════════════
+function guardarSemana() {
+  // Derivar fechaIni/Fin y venta desde los días cargados
+  const fi = cargaSemIni;
+  const finD = new Date(cargaSemIni + 'T12:00:00');
+  finD.setDate(finD.getDate() + 6);
+  const ff = finD.toISOString().slice(0,10);
+
+  // Calcular venta total de la semana desde ventas diarias
+  let venta = 0, dias = 0;
+  const ventasDia = loadVentasDia();
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(cargaSemIni + 'T12:00:00');
+    d.setDate(d.getDate() + i);
+    const fecha = d.toISOString().slice(0,10);
+    if (ventasDia[fecha]) { venta += ventasDia[fecha].venta; dias++; }
+  }
+
+  const compra   = parseFloat(document.getElementById('f_compra').value)   || null;
+  const pagoProv = parseFloat(document.getElementById('f_pagoProv').value)  || null;
+  const saldo    = parseFloat(document.getElementById('f_saldo').value)     || null;
+  const deuda    = parseFloat(document.getElementById('f_deuda').value)     || null;
+  const nota     = document.getElementById('f_nota').value || '';
+
+  if (!compra && !saldo && !deuda) {
+    showSaveMsg('⚠ Completá al menos un dato operativo (compra, saldo o deuda).', 'yellow');
+    return;
+  }
+
+  // Mix de canales: primero desde el form operativo, sino desde días
+  let peya = parseFloat(document.getElementById('f_peya').value) || 0;
+  let visa = parseFloat(document.getElementById('f_visa').value) || 0;
+  let amex = parseFloat(document.getElementById('f_amex').value) || 0;
+  let efvo = parseFloat(document.getElementById('f_efvo').value) || 0;
+  let hayCanales = (peya + visa + amex + efvo) > 0;
+
+  // Si no se cargaron canales en el form, intentar desde días
+  if (!hayCanales) {
+    for (let i = 0; i < 7; i++) {
+      const d2 = new Date(cargaSemIni + 'T12:00:00');
+      d2.setDate(d2.getDate() + i);
+      const dv = ventasDia[d2.toISOString().slice(0,10)];
+      if (dv?.peya) { peya+=dv.peya; visa+=dv.visa||0; amex+=dv.amex||0; efvo+=dv.efvo||0; hayCanales=true; }
+    }
+  }
+
+  const peyaPct = hayCanales && venta ? peya/venta : null;
+  const visaPct = hayCanales && venta ? visa/venta : null;
+  const amexPct = hayCanales && venta ? amex/venta : null;
+  const efvoPct = hayCanales && venta ? efvo/venta : null;
+  const cmvPct  = compra && venta ? compra/venta : null;
+
+  const scotiaCheck  = document.getElementById('f_scotiaCheck').checked;
+  const scotiaBruto  = scotiaCheck ? (parseFloat(document.getElementById('f_scotiaBruto').value) || null) : null;
+  const scotiaNeto   = scotiaBruto; // entra completo, sin descuentos — vos facturás IVA incluido
+  const scotiaRetDGI = null;        // no hay retenciones DGI de Scotia
+  const scotiaMes    = scotiaCheck ? (document.getElementById('f_scotiaMes').value || null) : null;
+
+  const semana = {
+    id: Date.now(),
+    fechaIni: fi, fechaFin: ff, dias: dias || 7,
+    venta, peya: peya||null, visa: visa||null, amex: amex||null, efvo: efvo||null,
+    peyaPct, visaPct, amexPct, efvoPct,
+    compra, pagoProv, saldo, deuda, cmvPct, nota,
+    ventaDia: dias ? venta/dias : venta/7,
+    ingresoBanco: calcIngresoBanco(venta, peyaPct, visaPct, amexPct, efvoPct),
+    scotiaBruto, scotiaNeto, scotiaRetDGI, scotiaMes,
+  };
+
+  const data = loadData();
+  // Reemplazar si ya existe semana para esa fechaIni
+  const idx = data.findIndex(s => s.fechaIni === fi);
+  if (idx >= 0) data[idx] = semana; else data.push(semana);
+  data.sort((a,b) => a.fechaIni.localeCompare(b.fechaIni));
+  saveData(data);
+
+  // Limpiar form operativo
+  document.getElementById('f_scotiaCheck').checked = false;
+  document.getElementById('scotiaFields').style.display = 'none';
+  ['f_peya','f_visa','f_amex','f_efvo','f_scotiaBruto','f_scotiaNeto','f_scotiaRetDGI','f_compra','f_pagoProv','f_saldo','f_deuda','f_nota'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  document.getElementById('f_scotiaMes').value = '';
+  document.getElementById('canalesResumen').style.display = 'none';
+
+  marcarPendiente();
+  showSaveMsg('✅ Datos operativos guardados.', 'green');
+  const _btn = document.querySelector('#page-carga .btn-primary[onclick="guardarSemana()"]');
+  if (_btn) { _btn.textContent = '💾 Actualizar datos operativos'; _btn.style.background = 'var(--green)'; }
+  document.getElementById('lastUpdate').textContent = 'Último guardado: ' + new Date().toLocaleDateString('es-UY');
+  renderDashboard();
+}
+
+function toggleEditScotia() {
+  const check = document.getElementById('e_scotiaCheck');
+  const fields = document.getElementById('e_scotiaFields');
+  fields.style.display = check.checked ? 'grid' : 'none';
+  fields.style.gridTemplateColumns = '1fr 1fr';
+}
+
+function recalcCanales() {
+  const peya = parseFloat(document.getElementById('f_peya').value) || 0;
+  const visa = parseFloat(document.getElementById('f_visa').value) || 0;
+  const amex = parseFloat(document.getElementById('f_amex').value) || 0;
+  const efvo = parseFloat(document.getElementById('f_efvo').value) || 0;
+  const total = peya + visa + amex + efvo;
+  const res = document.getElementById('canalesResumen');
+  if (total === 0) { res.style.display = 'none'; return; }
+  res.style.display = 'block';
+
+  // Calcular % de cada canal
+  const items = [
+    { l:'PeYa', v:peya, color:'var(--yellow)' },
+    { l:'Visa/MC', v:visa, color:'var(--blue)' },
+    { l:'AMEX', v:amex, color:'var(--purple)' },
+    { l:'Efvo', v:efvo, color:'var(--green)' },
+  ].filter(x => x.v > 0);
+
+  document.getElementById('canalesDetalle').innerHTML = items.map(x =>
+    `<span style="color:${x.color}"><b>${x.l}</b> ${(x.v/total*100).toFixed(1)}%</span>`
+  ).join(' · ');
+
+  // Verificar si suma con la venta total de la semana
+  // Calcular venta semana actual desde días
+  let ventaSem = 0;
+  const vd = loadVentasDia();
+  for (let i=0; i<7; i++) {
+    const d = new Date(cargaSemIni + 'T12:00:00');
+    d.setDate(d.getDate()+i);
+    const k = d.toISOString().slice(0,10);
+    if (vd[k]) ventaSem += vd[k].venta;
+  }
+  const chk = document.getElementById('canalesTotalCheck');
+  if (ventaSem > 0) {
+    const dif = Math.abs(total - ventaSem);
+    const pct = dif / ventaSem * 100;
+    if (pct < 1) {
+      chk.style.color = 'var(--green)';
+      chk.textContent = '✓ Total canales coincide con venta de la semana ($' + Math.round(total).toLocaleString() + ')';
+    } else {
+      chk.style.color = 'var(--yellow)';
+      chk.textContent = '⚠ Dif. vs venta diaria: $' + Math.round(dif).toLocaleString() + ' (' + pct.toFixed(1) + '%) — puede ser normal si los Z no cuadran exacto';
+    }
+  } else {
+    chk.style.color = 'var(--text2)';
+    chk.textContent = 'Total canales: $' + Math.round(total).toLocaleString();
+  }
+}
+
+function toggleScotia() {
+  const check = document.getElementById('f_scotiaCheck');
+  document.getElementById('scotiaFields').style.display = check.checked ? 'grid' : 'none';
+  document.getElementById('scotiaFields').style.gridTemplateColumns = check.checked ? '1fr 1fr' : '';
+}
+
+function showSaveMsg(msg, color) {
+  const el = document.getElementById('saveMsg');
+  el.textContent = msg;
+  el.style.color = color === 'green' ? 'var(--green)' : 'var(--yellow)';
+  el.style.display = 'block';
+  setTimeout(() => el.style.display = 'none', 3000);
+}
+
+// ══════════════════════════════════════════════════════
+// DELETE
+// ══════════════════════════════════════════════════════
+function deleteSemana(id) {
+  // Usar modal propio en lugar de confirm() que falla en algunos browsers mobile
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:#0005;z-index:999;display:flex;align-items:center;justify-content:center;padding:20px';
+  overlay.innerHTML = `
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:24px;max-width:320px;width:100%;text-align:center;box-shadow:0 8px 32px #0002">
+      <div style="font-size:28px;margin-bottom:12px">🗑</div>
+      <div style="font-weight:600;margin-bottom:8px;color:var(--text)">¿Eliminar esta semana?</div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:20px">Esta acción no se puede deshacer.</div>
+      <div style="display:flex;gap:10px;justify-content:center">
+        <button id="confirmDel" style="background:var(--red);color:#fff;border:none;padding:10px 24px;border-radius:var(--radius-sm);font-weight:600;cursor:pointer;font-size:14px">Eliminar</button>
+        <button id="cancelDel" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:10px 24px;border-radius:var(--radius-sm);font-weight:600;cursor:pointer;font-size:14px">Cancelar</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  document.getElementById('confirmDel').onclick = () => {
+    const data = loadData().filter(s => s.id !== id);
+    saveData(data);
+    document.body.removeChild(overlay);
+    renderHistorico();
+    renderDashboard();
+  };
+  document.getElementById('cancelDel').onclick = () => document.body.removeChild(overlay);
+  overlay.addEventListener('click', e => { if (e.target === overlay) document.body.removeChild(overlay); });
+}
+
+// ══════════════════════════════════════════════════════
+// DASHBOARD
+// ══════════════════════════════════════════════════════
+function renderDashboard() {
+  const data = loadData();
+  renderAlerts(data);
+  renderKPIs(data);
+  renderChartVenta(data);
+  renderChartCMV(data);
+  renderChartMix(data);
+  renderProgMes(data);
+  renderIndicadores(data);
+  renderChartSaldo(data);
+}
+
+function renderAlerts(data) {
+  const box = document.getElementById('alertsBox');
+  // Con nuevo sistema diario puede haber días sin semanas operativas
+  const _aMes = new Date(); 
+  const _aMesStr = _aMes.getFullYear() + '-' + String(_aMes.getMonth()+1).padStart(2,'0');
+  const semsAlertaMes = data.filter(s => s.fechaIni.slice(0,7) === _aMesStr);
+  const last4 = semsAlertaMes.length ? semsAlertaMes : data.slice(-4);
+  const lastSem = last4.length ? last4[last4.length-1] : (data.length ? data[data.length-1] : null);
+  if (!lastSem) { box.innerHTML = ''; return; }
+  const alerts = [];
+
+  // Venta mínima
+  const ventaDia = lastSem.ventaDia;
+  const objDia = objetivoDiario(lastSem.fechaIni);
+  const textoObj = textoObjetivoDia(lastSem.fechaIni);
+  if (ventaDia < objDia) {
+    alerts.push({ type: 'red', icon: '🔴', title: `Venta diaria bajo mínimo — ${fmt$(ventaDia)}/día`, sub: `Promedio semana: ${fmt$(ventaDia)}/día. Objetivo del mes: ${textoObj}.` });
+  } else if (ventaDia < objDia * 1.08) {
+    alerts.push({ type: 'yellow', icon: '🟡', title: `Venta diaria ajustada — ${fmt$(ventaDia)}/día`, sub: `Apenas por encima del mínimo. Objetivo del mes: ${textoObj}.` });
+  }
+
+  // CMV
+  if (lastSem.cmvPct && lastSem.cmvPct > PARAMS.maxCMV) {
+    alerts.push({ type: 'red', icon: '🔴', title: `CMV alto esta semana — ${fmtPct(lastSem.cmvPct)}`, sub: `El límite es 34%. CMV alto puede indicar desperdicio, pago de deuda acumulada o precios de proveedor subidos.` });
+  }
+
+  // PeYa
+  if (lastSem.peyaPct && lastSem.peyaPct > PARAMS.maxPeYaPct) {
+    alerts.push({ type: 'yellow', icon: '🟡', title: `PedidosYa superó el 34% — ${fmtPct(lastSem.peyaPct)}`, sub: `Cada punto extra de PeYa sobre el 34% cuesta ~$4k/mes. Activar campaña de canal propio.` });
+  }
+
+  // Saldo banco
+  if (lastSem.saldo && lastSem.saldo < PARAMS.minSaldo) {
+    alerts.push({ type: 'red', icon: '🚨', title: `Saldo banco crítico — ${fmt$(lastSem.saldo)}`, sub: `El saldo cayó por debajo de $50k. Reserva mínima operativa en riesgo. No retirar esta semana.` });
+  } else if (lastSem.saldo && lastSem.saldo < PARAMS.minSaldo * 1.5) {
+    alerts.push({ type: 'yellow', icon: '⚠️', title: `Saldo banco bajo — ${fmt$(lastSem.saldo)}`, sub: `El saldo está entre $50k y $75k. Zona de precaución. No retirar más del retiro habitual.` });
+  }
+
+  // Deuda proveedores
+  if (lastSem.deuda && lastSem.deuda > PARAMS.maxDeuda) {
+    alerts.push({ type: 'red', icon: '🔴', title: `Deuda proveedores alta — ${fmt$(lastSem.deuda)}`, sub: `Superó el parámetro máximo de ${fmt$(PARAMS.maxDeuda)}. Riesgo de corte de suministro. Priorizar pago a Conaprole y Masas Pipo.` });
+  }
+
+  // Tendencia CMV últimas 3 semanas
+  const ultCMV = last4.filter(s => s.cmvPct).map(s => s.cmvPct);
+  if (ultCMV.length >= 3) {
+    const trend = ultCMV[ultCMV.length-1] - ultCMV[0];
+    if (trend > 0.05) {
+      alerts.push({ type: 'yellow', icon: '📈', title: `CMV con tendencia al alza`, sub: `El CMV subió ${fmtPct(trend)} en las últimas semanas. Revisar precios de proveedores y mermas.` });
+    }
+  }
+
+  if (!alerts.length) {
+    alerts.push({ type: 'green', icon: '✅', title: 'Todo en orden esta semana', sub: 'Todos los indicadores dentro de los parámetros. Seguir el plan.' });
+  }
+
+  box.innerHTML = alerts.map(a => `
+    <div class="alert ${a.type}">
+      <div class="alert-icon">${a.icon}</div>
+      <div class="alert-body"><b>${a.title}</b><span>${a.sub}</span></div>
+    </div>`).join('');
+}
+
+function renderKPIs(data) {
+  const grid = document.getElementById('kpiGrid');
+  // Puede haber ventas diarias sin semanas operativas
+  const _mesActual = (() => { const h=new Date(); return h.getFullYear()+'-'+String(h.getMonth()+1).padStart(2,'0'); })();
+  const _vd = ventasMes(_mesActual);
+  if (!data.length && _vd.dias === 0) {
+    grid.innerHTML = '<div class="empty" style="grid-column:1/-1"><div class="icon">📊</div><p>Cargá la primera semana para ver los indicadores.</p></div>';
+    return;
+  }
+
+  // Mes actual
+  const _hoy = new Date();
+  const _hoyMes = _hoy.getFullYear() + '-' + String(_hoy.getMonth()+1).padStart(2,'0');
+
+  // Venta: siempre desde días reales del mes actual
+  const _vmHoy = ventasMes(_hoyMes);
+  const ventaMes = _vmHoy.venta; // 0 si no hay días cargados aún
+
+  // Semanas operativas del mes actual solamente
+  const semsDelMes = data.filter(s => s.fechaIni.slice(0,7) === _hoyMes);
+  // Última semana con datos (del mes actual primero, sino la más reciente global)
+  const lastSem = semsDelMes.length ? semsDelMes[semsDelMes.length-1]
+                : data.length ? data[data.length-1] : {};
+
+  // CMV y PeYa: solo semanas del mes actual
+  const compMes = semsDelMes.filter(x=>x.compra).reduce((s,x) => s + x.compra, 0);
+  const cmvMes  = compMes && ventaMes ? compMes / ventaMes : null;
+  const peyaSum = semsDelMes.filter(x=>x.peya).reduce((s,x) => s + x.peya, 0);
+  const peyaMes = peyaSum && ventaMes ? peyaSum / ventaMes : null;
+
+  // Venta diaria: promedio de días reales cargados este mes
+  const ventaDia = _vmHoy.dias > 0 ? _vmHoy.venta / _vmHoy.dias
+                 : (lastSem.ventaDia || null);
+
+  // Referencia de fecha para objetivo diario (usar hoy o última semana)
+  const fechaRef = _hoyMes + '-01';
+
+  const kpis = [
+    { label: 'Venta mes actual', value: ventaMes > 0 ? fmt$(ventaMes) : '—', sub: ventaMes > 0 ? `BE: ${fmt$(PARAMS.breakEven)} | Dif: ${fmt$(ventaMes - PARAMS.breakEven)}` : `${_vmHoy.dias} días cargados`, color: ventaMes >= PARAMS.breakEven ? 'green' : ventaMes >= PARAMS.breakEven*0.9 ? 'yellow' : 'red' },
+    { label: 'Venta diaria prom', value: ventaDia ? fmt$(ventaDia) : '—', sub: `Obj. ${textoObjetivoDia(fechaRef)}`, color: !ventaDia ? 'blue' : ventaDia >= objetivoDiario(fechaRef) ? 'green' : ventaDia >= objetivoDiario(fechaRef)*0.92 ? 'yellow' : 'red' },
+    { label: 'CMV mes actual', value: cmvMes ? fmtPct(cmvMes) : '—', sub: 'Límite: 34% | Histórico: 32.3%', color: !cmvMes ? 'blue' : cmvMes <= 0.323 ? 'green' : cmvMes <= 0.34 ? 'yellow' : 'red' },
+    { label: 'PedidosYa %', value: peyaMes ? fmtPct(peyaMes) : '—', sub: 'Límite: 34% | Objetivo: 25%', color: !peyaMes ? 'blue' : peyaMes <= 0.27 ? 'green' : peyaMes <= 0.34 ? 'yellow' : 'red' },
+    { label: 'Saldo banco', value: lastSem.saldo ? fmt$(lastSem.saldo) : '—', sub: 'Mínimo operativo: $50k', color: !lastSem.saldo ? 'blue' : lastSem.saldo >= 100000 ? 'green' : lastSem.saldo >= 50000 ? 'yellow' : 'red' },
+    { label: 'Deuda proveedores', value: lastSem.deuda ? fmt$(lastSem.deuda) : '—', sub: `Máximo: ${fmt$(PARAMS.maxDeuda)}`, color: !lastSem.deuda ? 'blue' : lastSem.deuda <= 200000 ? 'green' : lastSem.deuda <= PARAMS.maxDeuda ? 'yellow' : 'red' },
+  ];
+
+  grid.innerHTML = kpis.map(k => `
+    <div class="kpi ${k.color}">
+      <div class="kpi-label">${k.label}</div>
+      <div class="kpi-value ${k.color}">${k.value}</div>
+      <div class="kpi-sub">${k.sub}</div>
+    </div>`).join('');
+}
+
+function destroyChart(id) {
+  if (charts[id]) { charts[id].destroy(); delete charts[id]; }
+}
+
+function renderChartVenta(data) {
+  destroyChart('venta');
+  const canvas = document.getElementById('chartVenta');
+  if (!data.length) return;
+  const last12 = data.slice(-12);
+  const labels = last12.map(s => s.fechaIni.slice(5));
+  // Usar venta real acumulando días del período de cada semana
+  const ventas = last12.map(s => {
+    let v = 0;
+    const vd = loadVentasDia();
+    const ini = new Date(s.fechaIni + 'T12:00:00');
+    for (let i=0; i<s.dias; i++) {
+      const d = new Date(ini); d.setDate(d.getDate()+i);
+      const key = d.toISOString().slice(0,10);
+      v += vd[key] ? vd[key].venta : 0;
+    }
+    return v > 0 ? v : s.venta; // fallback a venta del registro
+  });
+  // Línea de mínimo dinámica: BE / días del mes × días de la semana
+  const minLine = last12.map(s => objetivoDiario(s.fechaIni) * s.dias);
+
+  charts['venta'] = new Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Venta semanal', data: ventas, backgroundColor: ventas.map((v,i) => v >= minLine[i] ? '#22c55e44' : '#ef444444'), borderColor: ventas.map((v,i) => v >= minLine[i] ? '#22c55e' : '#ef4444'), borderWidth: 2, borderRadius: 4 },
+        { label: 'Mínimo (BE ÷ días mes)', data: minLine, type: 'line', borderColor: '#f59e0b', borderDash: [6,3], borderWidth: 2, pointRadius: 3, pointBackgroundColor: '#f59e0b', fill: false },
+      ]
+    },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#374151', font: { size: 11 } } } }, scales: { x: { ticks: { color: '#6b7280', font: { size: 10 } }, grid: { color: '#e5e7eb' } }, y: { ticks: { color: '#6b7280', font: { size: 10 }, callback: v => '$' + (v/1000).toFixed(0) + 'k' }, grid: { color: '#e5e7eb' } } } }
+  });
+}
+
+function renderChartCMV(data) {
+  destroyChart('cmv');
+  const canvas = document.getElementById('chartCMV');
+  const withCMV = data.filter(s => s.cmvPct).slice(-12);
+  if (!withCMV.length) return;
+  const labels = withCMV.map(s => s.fechaIni.slice(5));
+  const cmvs = withCMV.map(s => s.cmvPct * 100);
+  const limLine = Array(withCMV.length).fill(34);
+  const histLine = Array(withCMV.length).fill(32.3);
+
+  charts['cmv'] = new Chart(canvas, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        { label: 'CMV %', data: cmvs, borderColor: '#3b82f6', backgroundColor: '#2563eb22', borderWidth: 2, fill: true, tension: 0.3, pointRadius: 4, pointBackgroundColor: cmvs.map(v => v > 34 ? '#ef4444' : '#22c55e') },
+        { label: 'Límite 34%', data: limLine, borderColor: '#ef4444', borderDash: [6,3], borderWidth: 2, pointRadius: 0, fill: false },
+        { label: 'Histórico 32.3%', data: histLine, borderColor: '#22c55e', borderDash: [3,3], borderWidth: 1, pointRadius: 0, fill: false },
+      ]
+    },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#374151', font: { size: 11 } } } }, scales: { x: { ticks: { color: '#6b7280', font: { size: 10 } }, grid: { color: '#e5e7eb' } }, y: { min: 15, max: 55, ticks: { color: '#6b7280', font: { size: 10 }, callback: v => v + '%' }, grid: { color: '#e5e7eb' } } } }
+  });
+}
+
+function renderChartMix(data) {
+  destroyChart('mix');
+  const canvas = document.getElementById('chartMix');
+  const leg = document.getElementById('mixLegend');
+  const last4 = data.slice(-4).filter(s => s.peyaPct);
+  if (!last4.length) { leg.innerHTML = '<div style="color:var(--text2);font-size:12px;text-align:center">Cargá ventas por canal</div>'; return; }
+
+  const totV = last4.reduce((s,x) => s + x.venta, 0);
+  const totPeya = last4.reduce((s,x) => s + (x.peya||0), 0);
+  const totVisa = last4.reduce((s,x) => s + (x.visa||0), 0);
+  const totAmex = last4.reduce((s,x) => s + (x.amex||0), 0);
+  const totEfvo = last4.reduce((s,x) => s + (x.efvo||0), 0);
+
+  const labels = ['PedidosYa', 'Visa/Master', 'AMEX', 'Efectivo+Transf'];
+  const vals = [totPeya, totVisa, totAmex, totEfvo].map(v => v/totV*100);
+  const colors = ['#f59e0b', '#3b82f6', '#a855f7', '#22c55e'];
+
+  charts['mix'] = new Chart(canvas, {
+    type: 'doughnut',
+    data: { labels, datasets: [{ data: vals, backgroundColor: colors.map(c => c + '99'), borderColor: colors, borderWidth: 2 }] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => `${ctx.label}: ${ctx.parsed.toFixed(1)}%` } } }, cutout: '65%' }
+  });
+
+  leg.innerHTML = labels.map((l,i) => `<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px"><span><span style="color:${colors[i]}">■</span> ${l}</span><b>${vals[i].toFixed(1)}%</b></div>`).join('');
+}
+
+function renderProgMes(data) {
+  const el = document.getElementById('progMes');
+  if (!data.length) { el.innerHTML = '<div style="color:var(--text2);font-size:13px">Sin datos</div>'; return; }
+  const last4 = data.slice(-4);
+  const ventaMes = last4.reduce((s,x) => s + x.venta, 0);
+  const progBE = Math.min(ventaMes / PARAMS.breakEven, 1.3);
+  const progObj = Math.min(ventaMes / 1050000, 1.3);
+
+  const bars = [
+    { label: 'vs Break even ($988k)', val: ventaMes / PARAMS.breakEven, color: ventaMes >= PARAMS.breakEven ? '#22c55e' : ventaMes >= PARAMS.breakEven*0.9 ? '#f59e0b' : '#ef4444' },
+    { label: 'vs Objetivo retiro $50k ($1.118k)', val: ventaMes / 1118000, color: '#3b82f6' },
+    { label: 'vs Objetivo retiro $80k ($1.195k)', val: ventaMes / 1195000, color: '#a855f7' },
+  ];
+
+  el.innerHTML = bars.map(b => `
+    <div class="prog-wrap">
+      <div class="prog-label"><span>${b.label}</span><span style="color:${b.color}">${(b.val*100).toFixed(0)}%</span></div>
+      <div class="prog-bar"><div class="prog-fill" style="width:${Math.min(b.val*100,100)}%;background:${b.color}"></div></div>
+    </div>`).join('') + `<div style="margin-top:12px;font-size:12px;color:var(--text2)">Venta acum. 4 sem: <b style="color:var(--text)">${fmt$(ventaMes)}</b></div>`;
+}
+
+function renderIndicadores(data) {
+  const el = document.getElementById('indicadores');
+  if (!data.length) { el.innerHTML = '<div style="color:var(--text2);font-size:13px">Sin datos</div>'; return; }
+  const _iHoy = new Date();
+  const _iMesStr = _iHoy.getFullYear() + '-' + String(_iHoy.getMonth()+1).padStart(2,'0');
+  const last4 = data.filter(s => s.fechaIni.slice(0,7) === _iMesStr);
+  const lastSem = last4.length ? last4[last4.length-1] : data[data.length-1];
+  const _vmInd = ventasMes(_iMesStr);
+  const ventaMes = _vmInd.dias > 0 ? _vmInd.venta : last4.reduce((s,x) => s + x.venta, 0);
+  const ingMes = _vmInd.dias > 0
+    ? calcIngresoBanco(_vmInd.venta, null, null, null, null)
+    : last4.reduce((s,x) => s + x.ingresoBanco, 0);
+  const tasaConv = ingMes / ventaMes;
+  const compMes = last4.filter(x=>x.compra).reduce((s,x) => s + x.compra, 0);
+  const cmvMes = compMes ? compMes/ventaMes : null;
+  const margen = cmvMes ? tasaConv - cmvMes : null;
+  const flujoEstim = margen ? ventaMes * margen - PARAMS.costosFijos : null;
+
+  const ultScotia = [...data].reverse().find(s => s.scotiaBruto);
+  const scotiaRow = ultScotia
+    ? `<div class="stat-row"><span>Último cobro AMEX <span style="font-size:10px;color:var(--text2)">(${ultScotia.scotiaMes||ultScotia.fechaIni.slice(0,7)})</span></span><span class="val blue">${fmt$(ultScotia.scotiaNeto)} neto</span></div>
+       <div class="stat-row"><span style="font-size:11px;color:var(--text2)">↳ Ret. DGI (crédito fiscal)</span><span class="val" style="color:var(--text2);font-size:11px">${ultScotia.scotiaRetDGI ? fmt$(ultScotia.scotiaRetDGI) : '—'}</span></div>`
+    : '<div class="stat-row"><span style="color:var(--text2);font-size:12px">Sin cobro Scotia/AMEX registrado aún</span></div>';
+
+  el.innerHTML = [
+    { l: 'Tasa conversión estimada', v: fmtPct(tasaConv), c: tasaConv >= 0.70 ? 'green' : 'yellow' },
+    { l: 'Margen de caja', v: margen ? fmtPct(margen) : '—', c: margen ? (margen >= 0.387 ? 'green' : 'yellow') : '' },
+    { l: 'Flujo neto estimado mes', v: flujoEstim ? fmt$(flujoEstim) : '—', c: flujoEstim ? (flujoEstim > 0 ? 'green' : 'red') : '' },
+    { l: 'Semanas cargadas', v: data.length + ' sem', c: 'blue' },
+  ].map(x => `<div class="stat-row"><span>${x.l}</span><span class="val ${x.c}">${x.v}</span></div>`).join('') + '<div class="divider"></div>' + scotiaRow;
+}
+
+function renderChartSaldo(data) {
+  destroyChart('saldo');
+  const canvas = document.getElementById('chartSaldo');
+  const withSaldo = data.filter(s => s.saldo).slice(-16);
+  if (!withSaldo.length) return;
+
+  const labels = withSaldo.map(s => s.fechaIni.slice(5));
+  const saldos = withSaldo.map(s => s.saldo);
+  const minLine = Array(withSaldo.length).fill(PARAMS.minSaldo);
+
+  charts['saldo'] = new Chart(canvas, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Saldo banco', data: saldos, borderColor: '#3b82f6', backgroundColor: '#2563eb18', fill: true, borderWidth: 2, tension: 0.3, pointRadius: 4, pointBackgroundColor: saldos.map(v => v < PARAMS.minSaldo ? '#ef4444' : v < PARAMS.minSaldo*1.5 ? '#f59e0b' : '#22c55e') },
+        { label: 'Mínimo ($50k)', data: minLine, borderColor: '#ef4444', borderDash: [6,3], borderWidth: 2, pointRadius: 0, fill: false },
+      ]
+    },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#374151', font: { size: 11 } } } }, scales: { x: { ticks: { color: '#6b7280', font: { size: 10 } }, grid: { color: '#e5e7eb' } }, y: { ticks: { color: '#6b7280', font: { size: 10 }, callback: v => '$' + (v/1000).toFixed(0) + 'k' }, grid: { color: '#e5e7eb' } } } }
+  });
+}
+
+// ══════════════════════════════════════════════════════
+// HISTORICO
+// ══════════════════════════════════════════════════════
+function renderHistorico() {
+  const data = loadData();
+  const tbody = document.getElementById('tbodyHistorico');
+  const empty = document.getElementById('emptyHistorico');
+  document.getElementById('countSemanas').textContent = `(${data.length} semanas)`;
+
+  if (!data.length) { tbody.innerHTML = ''; empty.style.display = 'block'; return; }
+  empty.style.display = 'none';
+
+  tbody.innerHTML = [...data].reverse().map(s => {
+    const cmvOk = !s.cmvPct || s.cmvPct <= 0.34;
+    const peyaOk = !s.peyaPct || s.peyaPct <= 0.34;
+    const saldoOk = !s.saldo || s.saldo >= PARAMS.minSaldo;
+    const ok = cmvOk && peyaOk && saldoOk;
+    const warn = !ok && (!(!cmvOk) || !(!peyaOk) || !(!saldoOk));
+
+    return `<tr>
+      <td>${s.fechaIni.slice(5)} → ${s.fechaFin.slice(5)}</td>
+      <td style="text-align:center">${s.dias}</td>
+      <td style="text-align:right;font-weight:600">${fmt$(s.venta)}</td>
+      <td style="text-align:right;color:${s.ventaDia >= objetivoDiario(s.fechaIni) ? 'var(--green)' : s.ventaDia >= objetivoDiario(s.fechaIni)*0.92 ? 'var(--yellow)' : 'var(--red)'}" title="Obj. ${textoObjetivoDia(s.fechaIni)}">${fmt$(s.ventaDia)}</td>
+      <td style="text-align:center;color:${s.cmvPct > 0.34 ? 'var(--red)' : s.cmvPct > 0.32 ? 'var(--yellow)' : 'var(--green)'}">${s.cmvPct ? fmtPct(s.cmvPct) : '—'}</td>
+      <td style="text-align:center;color:${s.peyaPct > 0.34 ? 'var(--red)' : s.peyaPct > 0.30 ? 'var(--yellow)' : 'var(--green)'}">${s.peyaPct ? fmtPct(s.peyaPct) : '—'}</td>
+      <td style="text-align:center;color:var(--text2)">${s.visaPct ? fmtPct(s.visaPct) : '—'}</td>
+      <td style="text-align:center;color:var(--text2)">${s.amexPct ? fmtPct(s.amexPct) : '—'}</td>
+      <td style="text-align:right;color:${!s.saldo ? 'var(--text2)' : s.saldo < PARAMS.minSaldo ? 'var(--red)' : s.saldo < 80000 ? 'var(--yellow)' : 'var(--green)'}">${s.saldo ? fmt$(s.saldo) : '—'}</td>
+      <td style="text-align:right;color:${!s.deuda ? 'var(--text2)' : s.deuda > PARAMS.maxDeuda ? 'var(--red)' : s.deuda > 200000 ? 'var(--yellow)' : 'var(--green)'}">${s.deuda ? fmt$(s.deuda) : '—'}</td>
+      <td>
+        <span class="badge ${ok ? 'green' : !cmvOk || !saldoOk ? 'red' : 'yellow'}">${ok ? '✓ OK' : !cmvOk || !saldoOk ? '✗ Alerta' : '⚠ Atención'}</span>
+        ${s.scotiaBruto ? '<span class="badge" style="background:var(--blue-dim);color:var(--blue);margin-left:4px" title="Scotia: bruto $'+Math.round(s.scotiaBruto).toLocaleString()+' / neto $'+Math.round(s.scotiaNeto||0).toLocaleString()+'">🏦 AMEX</span>' : ''}
+      </td>
+      <td style="display:flex;gap:4px">
+        <button class="del-btn" onclick="editSemana(${s.id})" title="Editar">✏️</button>
+        <button class="del-btn" onclick="deleteSemana(${s.id})" title="Eliminar">🗑</button>
+      </td>
+    </tr>`;
+  }).join('');
+
+  renderResumenMeses(data);
+  renderChartDeuda(data);
+}
+
+function renderResumenMeses(data) {
+  const el = document.getElementById('resumenMeses');
+  const meses = {};
+  data.forEach(s => {
+    const key = s.fechaIni.slice(0,7);
+    if (!meses[key]) meses[key] = { venta:0, compra:0, semanas:0 };
+    meses[key].venta += s.venta;
+    meses[key].compra += s.compra || 0;
+    meses[key].semanas++;
+  });
+
+  el.innerHTML = Object.entries(meses).reverse().slice(0,6).map(([mes, d]) => {
+    const cmv = d.compra ? d.compra/d.venta : null;
+    const ok = d.venta >= PARAMS.breakEven;
+    return `<div class="month-pill">
+      <div class="left">
+        <div class="month-name">${mes}</div>
+        <div style="font-size:13px;font-weight:700;color:${ok?'var(--green)':'var(--red)'}">${fmt$(d.venta)}</div>
+      </div>
+      <div style="display:flex;gap:16px;align-items:center;font-size:12px">
+        ${cmv ? `<span style="color:${cmv>0.34?'var(--red)':'var(--text2)'}">CMV ${fmtPct(cmv)}</span>` : ''}
+        <span class="badge ${ok?'green':'red'}">${ok?'✓ BE':'✗ Bajo BE'}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderChartDeuda(data) {
+  destroyChart('deuda');
+  const canvas = document.getElementById('chartDeuda');
+  const withDeuda = data.filter(s => s.deuda).slice(-12);
+  if (!withDeuda.length) return;
+
+  const labels = withDeuda.map(s => s.fechaIni.slice(5));
+  const deudas = withDeuda.map(s => s.deuda);
+  const maxLine = Array(withDeuda.length).fill(PARAMS.maxDeuda);
+
+  charts['deuda'] = new Chart(canvas, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Deuda proveedores', data: deudas, borderColor: '#f59e0b', backgroundColor: '#d9770618', fill: true, borderWidth: 2, tension: 0.3, pointRadius: 4, pointBackgroundColor: deudas.map(v => v > PARAMS.maxDeuda ? '#ef4444' : '#f59e0b') },
+        { label: `Máximo $${(PARAMS.maxDeuda/1000).toFixed(0)}k`, data: maxLine, borderColor: '#ef4444', borderDash: [6,3], borderWidth: 2, pointRadius: 0, fill: false },
+      ]
+    },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#374151', font: { size: 11 } } } }, scales: { x: { ticks: { color: '#6b7280', font: { size: 10 } }, grid: { color: '#e5e7eb' } }, y: { ticks: { color: '#6b7280', font: { size: 10 }, callback: v => '$' + (v/1000).toFixed(0) + 'k' }, grid: { color: '#e5e7eb' } } } }
+  });
+}
+
+// ══════════════════════════════════════════════════════
+// PROYECCION
+// ══════════════════════════════════════════════════════
+function renderProyeccion() {
+  simular();
+  renderTablaBreakeven();
+  renderChartEscenarios();
+  renderTablaPeya();
+}
+
+function simular() {
+  const venta = parseFloat(document.getElementById('sim_venta').value) || 950000;
+  const peyaPct = (parseFloat(document.getElementById('sim_peya').value) || 34) / 100;
+  const cmvPct = (parseFloat(document.getElementById('sim_cmv').value) || 32.3) / 100;
+
+  // Tasa conversion con este mix de PeYa
+  const visaPct = (1 - peyaPct - 0.07 - 0.073) * 0.88; // resto va a visa/master approx
+  const amexPct = 0.07;
+  const efvoPct = 0.073;
+  const ingreso = calcIngresoBanco(venta, peyaPct, null, amexPct, efvoPct);
+  const tasaConv = ingreso / venta;
+  const cmvPesos = venta * cmvPct;
+  const margen = tasaConv - cmvPct;
+  const flujoNeto = ingreso - cmvPesos - PARAMS.costosFijos;
+  const retiroMax = flujoNeto * 0.80;
+
+  const el = document.getElementById('simResultado');
+  const color = flujoNeto > 0 ? 'var(--green)' : 'var(--red)';
+  el.innerHTML = `
+    <div style="background:var(--bg3);border-radius:8px;padding:16px;margin-bottom:12px">
+      <div class="stat-row"><span>Tasa conversión estimada</span><span class="val">${fmtPct(tasaConv)}</span></div>
+      <div class="stat-row"><span>Ingreso al banco</span><span class="val">${fmt$(ingreso)}</span></div>
+      <div class="stat-row"><span>CMV (${fmtPct(cmvPct)} de venta)</span><span class="val red">-${fmt$(cmvPesos)}</span></div>
+      <div class="stat-row"><span>Costos fijos</span><span class="val red">-${fmt$(PARAMS.costosFijos)}</span></div>
+      <div class="stat-row" style="border-top:2px solid var(--border);margin-top:8px;padding-top:8px"><span><b>Flujo neto mensual</b></span><span class="val" style="color:${color};font-size:18px"><b>${fmt$(flujoNeto)}</b></span></div>
+    </div>
+    <div style="background:${flujoNeto > 0 ? 'var(--green-dim)' : 'var(--red-dim)'};border:1px solid ${flujoNeto > 0 ? 'var(--green)' : 'var(--red)'};border-radius:8px;padding:14px;text-align:center">
+      <div style="font-size:12px;color:var(--text2);margin-bottom:4px">Retiro mensual recomendado (80% del flujo)</div>
+      <div style="font-size:28px;font-weight:800;color:${color}">${flujoNeto > 0 ? fmt$(retiroMax) : 'No retirar'}</div>
+      <div style="font-size:11px;color:var(--text2);margin-top:4px">${flujoNeto > 0 ? `Dejando $${Math.round(flujoNeto*0.20/1000)}k como reserva` : `Déficit de ${fmt$(Math.abs(flujoNeto))} — cubrir con saldo bancario`}</div>
+    </div>`;
+}
+
+function renderTablaBreakeven() {
+  const el = document.getElementById('tablaBreakeven');
+  const rows = [0, 20000, 30000, 40000, 50000, 65000, 80000, 100000, 120000].map(retiro => {
+    const ventaNec = (PARAMS.costosFijos + retiro / 0.80) / (PARAMS.tasaConv - PARAMS.cmvPct);
+    const dif = ventaNec - 879000;
+    const color = dif <= 0 ? 'var(--green)' : dif <= 100000 ? 'var(--yellow)' : dif <= 200000 ? 'var(--red)' : 'var(--red)';
+    return `<div class="stat-row">
+      <span>${retiro === 0 ? 'Break even (sin retiro)' : fmt$(retiro) + '/mes'}</span>
+      <span style="display:flex;gap:12px;align-items:center">
+        <span style="font-size:11px;color:${color}">${dif > 0 ? '+' : ''}${fmt$(dif)}</span>
+        <span class="val" style="min-width:65px;text-align:right">${fmt$(ventaNec)}</span>
+      </span>
+    </div>`;
+  });
+  el.innerHTML = `<div style="font-size:11px;color:var(--text2);margin-bottom:8px;display:flex;justify-content:space-between"><span>Retiro objetivo</span><span>Dif. vs prom. actual &nbsp; Venta necesaria</span></div>` + rows.join('');
+}
+
+function renderChartEscenarios() {
+  destroyChart('escenarios');
+  const canvas = document.getElementById('chartEscenarios');
+  const ventas = [800, 850, 900, 950, 988, 1000, 1050, 1100, 1150, 1200, 1250].map(v => v*1000);
+  const labels = ventas.map(v => '$' + (v/1000).toFixed(0) + 'k');
+  const flujos = ventas.map(v => v * (PARAMS.tasaConv - PARAMS.cmvPct) - PARAMS.costosFijos);
+  const retiros = flujos.map(f => Math.max(0, f * 0.80));
+
+  charts['escenarios'] = new Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Flujo neto', data: flujos, backgroundColor: flujos.map(f => f > 0 ? '#22c55e44' : '#ef444444'), borderColor: flujos.map(f => f > 0 ? '#22c55e' : '#ef4444'), borderWidth: 2, borderRadius: 4 },
+        { label: 'Retiro posible (80%)', data: retiros, type: 'line', borderColor: '#3b82f6', backgroundColor: '#2563eb22', fill: false, borderWidth: 2, tension: 0.3, pointRadius: 3 },
+      ]
+    },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#374151', font: { size: 11 } } }, annotation: {} }, scales: { x: { ticks: { color: '#6b7280', font: { size: 10 } }, grid: { color: '#e5e7eb' } }, y: { ticks: { color: '#6b7280', font: { size: 10 }, callback: v => '$' + (v/1000).toFixed(0) + 'k' }, grid: { color: '#e5e7eb' } } } }
+  });
+}
+
+function renderTablaPeya() {
+  const el = document.getElementById('tablaPeya');
+  const rows = [34, 32, 30, 28, 25, 22, 20].map(peya => {
+    const peyaPct = peya / 100;
+    const ingreso = calcIngresoBanco(950000, peyaPct, null, 0.07, 0.073);
+    const flujo = ingreso - 950000 * PARAMS.cmvPct - PARAMS.costosFijos;
+    const retiro = Math.max(0, flujo * 0.80);
+    const ganancia = ingreso - calcIngresoBanco(950000, 0.34, null, 0.07, 0.073);
+    const color = peya <= 25 ? 'var(--green)' : peya <= 30 ? 'var(--yellow)' : 'var(--text)';
+    return `<div class="stat-row">
+      <span>PeYa al <b style="color:${color}">${peya}%</b></span>
+      <span style="display:flex;gap:20px;font-size:12px">
+        <span style="color:var(--green)">${ganancia > 0 ? '+' + fmt$(ganancia) + '/mes' : 'base'}</span>
+        <span>Flujo: <b style="color:${flujo>0?'var(--green)':'var(--red)'}">${fmt$(flujo)}</b></span>
+        <span>Retiro: <b style="color:var(--blue)">${fmt$(retiro)}</b></span>
+      </span>
+    </div>`;
+  });
+  el.innerHTML = `<div style="font-size:11px;color:var(--text2);margin-bottom:8px;display:flex;justify-content:space-between"><span>% PeYa de venta</span><span>Ganancia extra &nbsp; Flujo neto &nbsp; Retiro posible</span></div>` + rows.join('');
+}
+
+// ══════════════════════════════════════════════════════
+// EXPORT
+// ══════════════════════════════════════════════════════
+function exportData() {
+  const data = loadData();
+  if (!data.length) { alert('No hay datos para exportar.'); return; }
+  const headers = ['Fecha ini','Fecha fin','Días','Venta','PeYa $','PeYa %','Visa/Master $','AMEX $','Efvo+Transf $','Compra','Pago prov','Saldo banco','Deuda prov','CMV %','Nota'];
+  const rows = data.map(s => [s.fechaIni,s.fechaFin,s.dias,s.venta,s.peya||'',s.peyaPct?fmtPct(s.peyaPct):'',s.visa||'',s.amex||'',s.efvo||'',s.compra||'',s.pagoProv||'',s.saldo||'',s.deuda||'',s.cmvPct?fmtPct(s.cmvPct):'',s.nota||''].join(','));
+  const csv = [headers.join(','), ...rows].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = 'pizzeria_control_' + new Date().toISOString().slice(0,10) + '.csv';
+  a.click(); URL.revokeObjectURL(url);
+}
+
+
+// ══════════════════════════════════════════════════════
+// EDICION
+// ══════════════════════════════════════════════════════
+function editSemana(id) {
+  const data = loadData();
+  const s = data.find(x => x.id === id);
+  if (!s) return;
+
+  document.getElementById('e_id').value = id;
+  document.getElementById('e_fechaIni').value = s.fechaIni;
+  document.getElementById('e_fechaFin').value = s.fechaFin;
+  document.getElementById('e_venta').value = s.venta;
+  document.getElementById('e_dias').value = s.dias;
+  document.getElementById('e_peya').value = s.peya || '';
+  document.getElementById('e_visa').value = s.visa || '';
+  document.getElementById('e_amex').value = s.amex || '';
+  document.getElementById('e_efvo').value = s.efvo || '';
+  document.getElementById('e_compra').value = s.compra || '';
+  document.getElementById('e_pagoProv').value = s.pagoProv || '';
+  document.getElementById('e_saldo').value = s.saldo || '';
+  document.getElementById('e_deuda').value = s.deuda || '';
+  document.getElementById('e_nota').value = s.nota || '';
+  document.getElementById('editMsg').style.display = 'none';
+  // Scotia fields
+  const hasScotia = !!(s.scotiaBruto);
+  document.getElementById('e_scotiaCheck').checked = hasScotia;
+  const esf = document.getElementById('e_scotiaFields');
+  esf.style.display = hasScotia ? 'grid' : 'none';
+  document.getElementById('e_scotiaBruto').value  = s.scotiaBruto  || '';
+  document.getElementById('e_scotiaNeto').value   = s.scotiaNeto   || '';
+  document.getElementById('e_scotiaRetDGI').value = s.scotiaRetDGI || '';
+  document.getElementById('e_scotiaMes').value    = s.scotiaMes    || '';
+
+  const overlay = document.getElementById('modalOverlay');
+  overlay.style.display = 'flex';
+  setTimeout(() => overlay.querySelector('div').style.transform = 'none', 10);
+}
+
+function closeModal() {
+  document.getElementById('modalOverlay').style.display = 'none';
+}
+
+// Cerrar con click fuera
+const _overlay = document.getElementById('modalOverlay');
+if (_overlay) _overlay.addEventListener('click', function(e) { if (e.target === this) closeModal(); });
+
+// Cerrar con ESC
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+function guardarEdicion() {
+  const id = parseInt(document.getElementById('e_id').value);
+  const fi = document.getElementById('e_fechaIni').value;
+  const ff = document.getElementById('e_fechaFin').value;
+  const venta = parseFloat(document.getElementById('e_venta').value);
+  const dias = parseInt(document.getElementById('e_dias').value) || 7;
+
+  if (!fi || !ff || !venta) {
+    const msg = document.getElementById('editMsg');
+    msg.textContent = '⚠ Completá fechas y venta total.';
+    msg.style.color = 'var(--yellow)'; msg.style.display = 'block';
+    return;
+  }
+
+  const peya = parseFloat(document.getElementById('e_peya').value) || null;
+  const visa = parseFloat(document.getElementById('e_visa').value) || null;
+  const amex = parseFloat(document.getElementById('e_amex').value) || null;
+  const efvo = parseFloat(document.getElementById('e_efvo').value) || null;
+  const compra = parseFloat(document.getElementById('e_compra').value) || null;
+  const pagoProv = parseFloat(document.getElementById('e_pagoProv').value) || null;
+  const saldo = parseFloat(document.getElementById('e_saldo').value) || null;
+  const deuda = parseFloat(document.getElementById('e_deuda').value) || null;
+  const nota = document.getElementById('e_nota').value || '';
+
+  const peyaPct = peya ? peya/venta : null;
+  const visaPct = visa ? visa/venta : null;
+  const amexPct = amex ? amex/venta : null;
+  const efvoPct = efvo ? efvo/venta : null;
+
+  const eScotiaCheck = document.getElementById('e_scotiaCheck').checked;
+  const updated = {
+    id, fechaIni: fi, fechaFin: ff, dias, venta,
+    peya, visa, amex, efvo,
+    peyaPct, visaPct, amexPct, efvoPct,
+    compra, pagoProv, saldo, deuda, nota,
+    cmvPct: compra ? compra/venta : null,
+    ventaDia: venta / dias,
+    ingresoBanco: calcIngresoBanco(venta, peyaPct, visaPct, amexPct, efvoPct),
+    scotiaBruto:  eScotiaCheck ? (parseFloat(document.getElementById('e_scotiaBruto').value) || null) : null,
+    scotiaNeto:   eScotiaCheck ? (parseFloat(document.getElementById('e_scotiaBruto').value) || null) : null, // igual al bruto
+    scotiaRetDGI: null,
+    scotiaMes:    eScotiaCheck ? (document.getElementById('e_scotiaMes').value || null) : null,
+  };
+
+  const data = loadData().map(s => s.id === id ? updated : s);
+  data.sort((a,b) => a.fechaIni.localeCompare(b.fechaIni));
+  saveData(data);
+
+  const msg = document.getElementById('editMsg');
+  msg.textContent = '✅ Guardado.'; msg.style.color = 'var(--green)'; msg.style.display = 'block';
+  setTimeout(() => {
+    closeModal();
+    renderHistorico();
+    renderDashboard();
+  }, 700);
+}
+
+
+
+// ══════════════════════════════════════════════════════
+// RESULTADOS MENSUALES
+// ══════════════════════════════════════════════════════
+let resMesActual = new Date().toISOString().slice(0,7); // "2026-03"
+let anualAno = new Date().getFullYear();
+
+const MESES_NOMBRES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+function mesAnterior() {
+  let [ano, mes] = resMesActual.split('-').map(Number);
+  mes--;
+  if (mes < 1) { mes = 12; ano--; }
+  resMesActual = ano + '-' + String(mes).padStart(2,'0');
+  renderResultados();
+}
+function mesSiguiente() {
+  let [ano, mes] = resMesActual.split('-').map(Number);
+  mes++;
+  if (mes > 12) { mes = 1; ano++; }
+  resMesActual = ano + '-' + String(mes).padStart(2,'0');
+  renderResultados();
+}
+function anoAnterior()  { anualAno--; renderAnual(); }
+function anoSiguiente() { anualAno++; renderAnual(); }
+
+// Agrupa semanas por mes (usa fechaIni para asignar el mes)
+function semanasPorMes(mes) {
+  // Incluir semana si alguno de sus días cae en el mes
+  return loadData().filter(s => {
+    const ini = new Date(s.fechaIni + 'T12:00:00');
+    const fin = new Date(s.fechaFin + 'T12:00:00');
+    const [ano, mesN] = mes.split('-').map(Number);
+    const primerDia = new Date(ano, mesN-1, 1);
+    const ultimoDia = new Date(ano, mesN, 0);
+    return ini <= ultimoDia && fin >= primerDia;
+  }).filter((s,i,arr) => arr.findIndex(x=>x.id===s.id)===i);
+}
+
+// Obtiene costos del mes (override o default)
+function getCostosMes(mes) {
+  const overrides = loadCostosMes()[mes] || {};
+  return COSTOS_DETALLE_DEFAULT.map(c => ({
+    ...c,
+    monto: overrides[c.label] !== undefined ? overrides[c.label] : c.monto
+  }));
+}
+
+function totalCostosMes(mes) {
+  return getCostosMes(mes).reduce((s,c) => s + c.monto, 0);
+}
+
+// Construye el estado de resultados de un mes
+function buildEstado(mes) {
+  // ── Venta: suma de días reales del mes (precisa, sin prorrateo) ──
+  const vm = ventasMes(mes);
+
+  // ── Datos operativos: desde registros semanales que tocan el mes ──
+  const semanas = semanasPorMes(mes);
+
+  // Si no hay ningún dato, retornar null
+  if (vm.dias === 0 && !semanas.length) return null;
+
+  // Venta: preferir días diarios; si no hay, sumar semanas (compatibilidad)
+  const venta   = vm.dias > 0 ? vm.venta : semanas.reduce((s,x) => s + x.venta, 0);
+  const diasMes = vm.dias > 0 ? vm.dias  : semanas.reduce((s,x) => s + (x.dias||7), 0);
+
+  // Canales: del acumulado diario si existe, sino del semanal
+  const hayCanalesDia = (vm.peya + vm.visa + vm.amex + vm.efvo) > 0;
+  const peyaT = hayCanalesDia ? vm.peya : semanas.reduce((s,x) => s + (x.peya||0), 0);
+  const visaT = hayCanalesDia ? vm.visa : semanas.reduce((s,x) => s + (x.visa||0), 0);
+  const amexT = hayCanalesDia ? vm.amex : semanas.reduce((s,x) => s + (x.amex||0), 0);
+  const efvoT = hayCanalesDia ? vm.efvo : semanas.reduce((s,x) => s + (x.efvo||0), 0);
+
+  // Si hay canales del form semanal (peyaPct guardado) usarlos para calcular ingreso
+  // Buscar semana cuya fechaIni esté en este mes o sea la más reciente
+  const semMes = semanas.filter(s => s.fechaIni.slice(0,7) === mes);
+  const hayCanalSem = semMes.some(s => s.peyaPct);
+
+  let ingresoBase;
+  if (hayCanalSem) {
+    // Usar mix real de las semanas del mes, aplicado sobre venta diaria
+    const totalCanalesSem = semMes.reduce((s,x) => s + (x.peya||0) + (x.visa||0) + (x.amex||0) + (x.efvo||0), 0);
+    if (totalCanalesSem > 0) {
+      const peyPct = semMes.reduce((s,x) => s + (x.peya||0), 0) / totalCanalesSem;
+      const visPct = semMes.reduce((s,x) => s + (x.visa||0), 0) / totalCanalesSem;
+      const amxPct = semMes.reduce((s,x) => s + (x.amex||0), 0) / totalCanalesSem;
+      const efvPct = semMes.reduce((s,x) => s + (x.efvo||0), 0) / totalCanalesSem;
+      ingresoBase = calcIngresoBanco(venta, peyPct, visPct, amxPct, efvPct);
+    } else {
+      ingresoBase = calcIngresoBanco(venta, null, null, null, null);
+    }
+  } else {
+    ingresoBase = calcIngresoBanco(venta, null, null, null, null);
+  }
+
+  // Scotia: solo de semanas cuyo scotiaMes coincide con el mes, o cuya fechaIni está en el mes
+  const scotiaNeto = semanas
+    .filter(s => (s.scotiaMes && s.scotiaMes === mes) || (!s.scotiaMes && s.fechaIni.slice(0,7) === mes))
+    .reduce((s,x) => s + (x.scotiaNeto||0), 0);
+
+  const ingreso     = ingresoBase + scotiaNeto;
+  const compra      = semanas.reduce((s,x) => s + (x.compra||0), 0);
+  const pagoProv    = semanas.reduce((s,x) => s + (x.pagoProv||0), 0);
+  const cmvPct      = compra && venta ? compra/venta : null;
+  const margenBruto = ingreso - compra;
+  const costosFijos = totalCostosMes(mes);
+  const flujoNeto   = margenBruto - costosFijos;
+  const tasaConv    = venta ? ingreso/venta : 0;
+
+  // Saldo y deuda: último valor disponible del mes
+  const conSaldo = semanas.filter(s => s.saldo);
+  const conDeuda = semanas.filter(s => s.deuda);
+  const saldoFinal = conSaldo.length ? conSaldo[conSaldo.length-1].saldo : null;
+  const deudaFinal = conDeuda.length ? conDeuda[conDeuda.length-1].deuda : null;
+
+  return { venta, diasMes, ingresoBase, scotiaNeto, ingreso, compra, pagoProv,
+           cmvPct, margenBruto, costosFijos, flujoNeto, tasaConv,
+           saldoFinal, deudaFinal, semanas: semanas.length };
+}
+
+function renderResultados() {
+  const mes = resMesActual;
+  const [ano, mesNum] = mes.split('-');
+  document.getElementById('resMesLabel').textContent = MESES_NOMBRES[parseInt(mesNum)-1] + ' ' + ano;
+
+  const e = buildEstado(mes);
+  const sinDatos = document.getElementById('resSinDatos');
+
+  if (!e) {
+    sinDatos.style.display = 'block';
+    document.getElementById('resKPIs').innerHTML = '';
+    document.getElementById('resEstado').innerHTML = '';
+    document.getElementById('resComparacion').innerHTML = '';
+    document.getElementById('resSemanas').innerHTML = '';
+    document.getElementById('resCostos').innerHTML = '';
+    document.getElementById('resMesVsBE').textContent = '';
+    return;
+  }
+  sinDatos.style.display = 'none';
+
+  // Mes anterior
+  const dPrev = new Date(mes + '-01');
+  dPrev.setMonth(dPrev.getMonth() - 1);
+  const mesPrev = dPrev.toISOString().slice(0,7);
+  const ePrev = buildEstado(mesPrev);
+
+  // ── KPIs ──────────────────────────────────────────────────────
+  const beOk = e.venta >= PARAMS.breakEven;
+  const kpis = [
+    { l:'Venta del mes',    v:fmt$(e.venta),      c: beOk?'green':'red',    s:'BE: '+fmt$(PARAMS.breakEven) },
+    { l:'Ingreso al banco', v:fmt$(e.ingreso),     c:'blue',                 s:'Tasa conv: '+fmtPct(e.tasaConv) },
+    { l:'CMV %',            v:e.cmvPct?fmtPct(e.cmvPct):'—', c:!e.cmvPct?'blue':e.cmvPct<=PARAMS.cmvPct?'green':e.cmvPct<=PARAMS.maxCMV?'yellow':'red', s:'Límite: '+fmtPct(PARAMS.maxCMV) },
+    { l:'Margen bruto',     v:fmt$(e.margenBruto), c:e.margenBruto>0?'green':'red', s:fmtPct(e.margenBruto/e.venta)+' de la venta' },
+    { l:'Flujo neto',       v:fmt$(e.flujoNeto),   c:e.flujoNeto>0?'green':'red',   s:e.flujoNeto>0?'Sobre BE':'Bajo BE' },
+    { l:'Saldo banco cierre',v:e.saldoFinal?fmt$(e.saldoFinal):'—', c:!e.saldoFinal?'blue':e.saldoFinal>=PARAMS.minSaldo*2?'green':e.saldoFinal>=PARAMS.minSaldo?'yellow':'red', s:'Mín: '+fmt$(PARAMS.minSaldo) },
+  ];
+  document.getElementById('resKPIs').innerHTML = kpis.map(k=>`
+    <div class="kpi ${k.c}">
+      <div class="kpi-label">${k.l}</div>
+      <div class="kpi-value ${k.c}">${k.v}</div>
+      <div class="kpi-sub">${k.s}</div>
+    </div>`).join('');
+
+  // BE badge
+  const difBE = e.venta - PARAMS.breakEven;
+  document.getElementById('resMesVsBE').innerHTML =
+    `<span style="color:${difBE>=0?'var(--green)':'var(--red)'};font-weight:700">${difBE>=0?'✓ ':'✗ '}${difBE>=0?'+':''}${fmt$(difBE)} vs BE</span>`;
+
+  // ── Estado de resultados ──────────────────────────────────────
+  const lineas = [
+    { l:'Venta bruta (cierre Z)',       v:e.venta,        style:'normal', indent:0 },
+    { l:'Descuentos canales',            v:e.venta-e.ingresoBase, style:'sub', neg:true, indent:1 },
+    { l:'Ingresos tarjetas/efectivo',    v:e.ingresoBase,  style:'sub2', indent:1 },
+    { l:'+ Cobro Scotia/AMEX (facturado)',   v:e.scotiaNeto||null, style:'sub_green', indent:1 },
+    { l:'TOTAL INGRESADO AL BANCO',      v:e.ingreso,      style:'subtotal', indent:0 },
+    { l:'CMV — Costo mercadería',        v:e.compra,       style:'sub', neg:true, indent:1 },
+    { l:'MARGEN BRUTO',                  v:e.margenBruto,  style:'total', indent:0 },
+    { l:'% sobre venta',                 v:null,           style:'pct', pct:e.margenBruto/e.venta, indent:1 },
+    { l:'Costos fijos del mes',          v:e.costosFijos,  style:'sub', neg:true, indent:1 },
+    { l:'FLUJO NETO',                    v:e.flujoNeto,    style:'total_final', indent:0 },
+    { l:'Deuda proveedores al cierre',   v:e.deudaFinal,   style:'info', indent:0 },
+  ];
+
+  document.getElementById('resEstado').innerHTML = lineas.map(l => {
+    if (l.style==='pct') return `<div style="padding:3px 12px 6px;font-size:11px;color:var(--text2)">↳ Margen: <b>${fmtPct(l.pct)}</b></div>`;
+    if (l.v===null||l.v===undefined) return '';
+    const isNeg = l.neg || (l.style==='total_final' && l.v<0);
+    const isPos = l.style==='total_final' && l.v>=0;
+    const bg = l.style==='total_final' ? (l.v>=0?'var(--green-dim)':'var(--red-dim)') : l.style==='total'?'var(--bg3)':l.style==='sub_green'?'var(--green-dim)':'transparent';
+    const fw = ['total','total_final','subtotal'].includes(l.style) ? '700' : '400';
+    const color = l.style==='sub_green'?'var(--green)':isNeg?'var(--red)':isPos?'var(--green)':'var(--text)';
+    const pad = l.indent ? 'padding-left:20px' : '';
+    return `<div style="display:flex;justify-content:space-between;padding:8px 10px;border-radius:6px;background:${bg};${pad}">
+      <span style="font-size:13px;font-weight:${fw};color:${['total','total_final'].includes(l.style)?'var(--text)':'var(--text2)'}">${l.l}</span>
+      <span style="font-size:13px;font-weight:${fw};color:${color}">${l.neg?'−':''} ${fmt$(Math.abs(l.v||0))}</span>
+    </div>`;
+  }).join('');
+
+  // ── Comparación vs mes anterior ───────────────────────────────
+  const [mNum, mNom] = [parseInt(mesNum)-1, MESES_NOMBRES[parseInt(mesNum)-1]];
+  const prevNom = MESES_NOMBRES[dPrev.getMonth()];
+  document.getElementById('resCompLabel').textContent = `${mNom} vs ${prevNom}`;
+
+  if (!ePrev) {
+    document.getElementById('resComparacion').innerHTML = `<div style="color:var(--text2);font-size:13px;padding:12px 0">Sin datos del mes anterior para comparar.</div>`;
+  } else {
+    const items = [
+      { l:'Venta',         a:e.venta,        b:ePrev.venta        },
+      { l:'Ing. banco',    a:e.ingreso,       b:ePrev.ingreso      },
+      { l:'CMV %',         a:e.cmvPct,        b:ePrev.cmvPct, pct:true },
+      { l:'Margen bruto',  a:e.margenBruto,   b:ePrev.margenBruto  },
+      { l:'Costos fijos',  a:e.costosFijos,   b:ePrev.costosFijos  },
+      { l:'Flujo neto',    a:e.flujoNeto,     b:ePrev.flujoNeto    },
+    ];
+    document.getElementById('resComparacion').innerHTML = items.map(it => {
+      if (it.a==null||it.b==null) return '';
+      const dif = it.a - it.b;
+      const better = it.l==='CMV %' ? dif<0 : dif>0;
+      const color = dif===0?'var(--text2)':better?'var(--green)':'var(--red)';
+      const pctDif = it.b ? ((dif/Math.abs(it.b))*100).toFixed(1) : null;
+      return `<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px">
+        <span style="color:var(--text2)">${it.l}</span>
+        <span style="display:flex;gap:12px;align-items:center">
+          <span style="color:var(--text2);font-size:11px">${it.pct?fmtPct(it.b):fmt$(it.b)}</span>
+          <span style="color:var(--text);font-weight:600">${it.pct?fmtPct(it.a):fmt$(it.a)}</span>
+          <span style="color:${color};font-size:11px;min-width:54px;text-align:right">${dif>0?'+':''}${it.pct?fmtPct(dif):fmt$(dif)}${pctDif&&!it.pct?' ('+pctDif+'%)':''}</span>
+        </span>
+      </div>`;
+    }).join('');
+  }
+
+  // ── Semanas del mes ───────────────────────────────────────────
+  const semanas = semanasPorMes(mes);
+  document.getElementById('resSemanas').innerHTML = semanas.map(s => {
+    const cmvColor = s.cmvPct>PARAMS.maxCMV?'var(--red)':s.cmvPct>PARAMS.cmvPct?'var(--yellow)':'var(--green)';
+    return `<div style="display:flex;justify-content:space-between;font-size:12px;padding:6px 0;border-bottom:1px solid var(--border)">
+      <span style="color:var(--text2)">${s.fechaIni.slice(5)} → ${s.fechaFin.slice(5)}</span>
+      <span style="display:flex;gap:12px">
+        <span><b>${fmt$(s.venta)}</b></span>
+        <span style="color:${cmvColor}">${s.cmvPct?fmtPct(s.cmvPct):'—'}</span>
+        ${s.scotiaBruto?'<span style="color:var(--blue);font-size:11px">🏦</span>':''}
+      </span>
+    </div>`;
+  }).join('');
+
+  // ── Costos del mes ────────────────────────────────────────────
+  const costos = getCostosMes(mes);
+  const overrides = loadCostosMes()[mes] || {};
+  const hasOverride = Object.keys(overrides).length > 0;
+  document.getElementById('resCostosNota').textContent = hasOverride ? '(ajustados para este mes)' : '(valores de configuración)';
+
+  const cats = [...new Set(costos.map(c=>c.cat))];
+  let html = '';
+  cats.forEach(cat => {
+    const items = costos.filter(c=>c.cat===cat);
+    const subTotal = items.reduce((s,c)=>s+c.monto,0);
+    html += `<div style="margin-bottom:12px">
+      <div style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;padding:4px 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between">
+        <span>${cat}</span><span>${fmt$(subTotal)}</span>
+      </div>`;
+    items.forEach(c => {
+      const mod = overrides[c.label]!==undefined;
+      html += `<div style="display:flex;justify-content:space-between;font-size:13px;padding:5px 0 5px 12px;border-bottom:1px solid var(--bg3)">
+        <span style="color:${mod?'var(--blue)':'var(--text2)'}">${c.label}${mod?' ✎':''}</span>
+        <span style="font-weight:${mod?'700':'400'}">${fmt$(c.monto)}</span>
+      </div>`;
+    });
+    html += '</div>';
+  });
+  html += `<div style="display:flex;justify-content:space-between;font-size:14px;font-weight:700;padding:10px;background:var(--bg3);border-radius:6px;margin-top:4px">
+    <span>TOTAL COSTOS FIJOS</span><span>${fmt$(e.costosFijos)}</span>
+  </div>`;
+  document.getElementById('resCostos').innerHTML = html;
+
+  // ── Análisis y recomendaciones ──────────────────────────────
+  const analisis = generarAnalisis(e, mes);
+  const analCard = document.getElementById('resAnalisisCard');
+  const analDiv  = document.getElementById('resAnalisisContenido');
+  analCard.style.display = 'block';
+  analDiv.innerHTML = analisis.bloques.map(b => {
+    const bgColor = b.tipo==='ok' ? 'var(--green-dim)' : b.tipo==='alerta' ? 'var(--red-dim)' : 'var(--yellow-dim)';
+    const bdColor = b.tipo==='ok' ? 'var(--green)' : b.tipo==='alerta' ? 'var(--red)' : 'var(--yellow)';
+    const txColor = b.tipo==='ok' ? 'var(--green)' : b.tipo==='alerta' ? 'var(--red)' : 'var(--yellow)';
+    return `<div style="background:${bgColor};border-left:4px solid ${bdColor};border-radius:0 8px 8px 0;padding:12px 16px;margin-bottom:10px">
+      <div style="font-weight:700;font-size:13px;color:${txColor};margin-bottom:4px">${b.titulo}</div>
+      <div style="font-size:12px;color:var(--text);line-height:1.6">${b.texto}</div>
+    </div>`;
+  }).join('');
+
+  // ── Gráfico tendencia ────────────────────────────────────────
+  renderChartMensual();
+}
+
+function renderChartMensual() {
+  destroyChart('mensual');
+  const canvas = document.getElementById('chartMensual');
+  if (!canvas) return;
+
+  // Obtener todos los meses con datos
+  const data = loadData();
+  const mesesUnicos = [...new Set(data.map(s=>s.fechaIni.slice(0,7)))].sort();
+  if (mesesUnicos.length < 1) return;
+
+  const labels   = mesesUnicos.map(m => { const [a,n]=m.split('-'); return MESES_NOMBRES[parseInt(n)-1].slice(0,3)+' '+a.slice(2); });
+  const ventas   = mesesUnicos.map(m => buildEstado(m)?.venta || 0);
+  const flujos   = mesesUnicos.map(m => buildEstado(m)?.flujoNeto || 0);
+  const beLines  = mesesUnicos.map(() => PARAMS.breakEven);
+
+  charts['mensual'] = new Chart(canvas, {
+    data: {
+      labels,
+      datasets: [
+        { type:'bar',  label:'Venta', data:ventas, backgroundColor: ventas.map(v=>v>=PARAMS.breakEven?'#16a34a33':'#dc262633'), borderColor: ventas.map(v=>v>=PARAMS.breakEven?'#16a34a':'#dc2626'), borderWidth:2, borderRadius:4, yAxisID:'y' },
+        { type:'line', label:'Flujo neto', data:flujos, borderColor:'#2563eb', backgroundColor:'#2563eb18', fill:true, borderWidth:2, tension:0.3, pointRadius:4, pointBackgroundColor:flujos.map(f=>f>=0?'#16a34a':'#dc2626'), yAxisID:'y2' },
+        { type:'line', label:'Break Even', data:beLines, borderColor:'#d97706', borderDash:[6,3], borderWidth:2, pointRadius:0, fill:false, yAxisID:'y' },
+      ]
+    },
+    options: { responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ labels:{ color:'#6b7280', font:{size:11} } } },
+      scales:{
+        y:  { position:'left',  ticks:{ color:'#6b7280', font:{size:10}, callback:v=>'$'+(v/1000).toFixed(0)+'k' }, grid:{ color:'#e5e7eb' } },
+        y2: { position:'right', ticks:{ color:'#2563eb', font:{size:10}, callback:v=>'$'+(v/1000).toFixed(0)+'k' }, grid:{ drawOnChartArea:false } },
+        x:  { ticks:{ color:'#6b7280', font:{size:10} }, grid:{ color:'#e5e7eb' } }
+      }
+    }
+  });
+}
+
+// ── Editar costos del mes ─────────────────────────────────────────
+function editarCostosMes() {
+  const mes = resMesActual;
+  const costos = getCostosMes(mes);
+  const overrides = loadCostosMes()[mes] || {};
+  const [ano, mesNum] = mes.split('-');
+
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:#0005;z-index:999;display:flex;align-items:center;justify-content:center;padding:16px';
+
+  let fieldsHtml = costos.map(c => `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);gap:12px">
+      <label style="font-size:12px;color:var(--text2);flex:1">${c.label} <span style="color:var(--text2);font-size:10px">(${c.cat})</span></label>
+      <input type="number" data-label="${c.label}" value="${c.monto}"
+        style="width:110px;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px 8px;border-radius:6px;font-size:13px;text-align:right">
+    </div>`).join('');
+
+  overlay.innerHTML = `
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:24px;width:min(520px,95vw);max-height:88vh;overflow-y:auto">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+        <h3 style="font-size:15px;font-weight:700">✏️ Costos de ${MESES_NOMBRES[parseInt(mesNum)-1]} ${ano}</h3>
+        <button onclick="this.closest('[style]').remove()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--text2)">×</button>
+      </div>
+      <p style="font-size:12px;color:var(--text2);margin-bottom:16px">Editá los valores que cambiaron este mes. Los demás quedan igual a la configuración base.</p>
+      <div id="costosMesFields">${fieldsHtml}</div>
+      <div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap">
+        <button id="btnGuardarCostos" style="flex:1;background:var(--blue);color:#fff;border:none;padding:11px;border-radius:var(--radius-sm);font-weight:600;cursor:pointer;font-size:13px">💾 Guardar para ${MESES_NOMBRES[parseInt(mesNum)-1]}</button>
+        <button id="btnResetCostos" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:11px 16px;border-radius:var(--radius-sm);font-weight:600;cursor:pointer;font-size:13px">↺ Restaurar base</button>
+      </div>
+    </div>`;
+
+  document.body.appendChild(overlay);
+
+  document.getElementById('btnGuardarCostos').onclick = () => {
+    const all = loadCostosMes();
+    const nuevos = {};
+    overlay.querySelectorAll('input[data-label]').forEach(inp => {
+      nuevos[inp.dataset.label] = parseFloat(inp.value) || 0;
+    });
+    all[mes] = nuevos;
+    saveCostosMes(all);
+    overlay.remove();
+    renderResultados();
+  };
+
+  document.getElementById('btnResetCostos').onclick = () => {
+    const all = loadCostosMes();
+    delete all[mes];
+    saveCostosMes(all);
+    overlay.remove();
+    renderResultados();
+  };
+
+  overlay.addEventListener('click', e => { if (e.target===overlay) overlay.remove(); });
+}
+
+// ══════════════════════════════════════════════════════
+// RESUMEN ANUAL
+// ══════════════════════════════════════════════════════
+function renderAnual() {
+  document.getElementById('anualAnoLabel').textContent = anualAno;
+
+  const mesesAno = Array.from({length:12}, (_,i) => `${anualAno}-${String(i+1).padStart(2,'0')}`);
+  const estados  = mesesAno.map(m => ({ mes:m, e:buildEstado(m) }));
+  const conDatos = estados.filter(x => x.e);
+
+  // ── KPIs anuales ─────────────────────────────────────────────
+  if (!conDatos.length) {
+    document.getElementById('anualKPIs').innerHTML = `<div class="empty" style="grid-column:1/-1"><div class="icon">📭</div><p>Sin datos para ${anualAno}.</p></div>`;
+    document.getElementById('tbodyAnual').innerHTML = '';
+    return;
+  }
+
+  const totalVenta   = conDatos.reduce((s,x)=>s+x.e.venta,0);
+  const totalIngreso = conDatos.reduce((s,x)=>s+x.e.ingreso,0);
+  const totalCMVp    = conDatos.reduce((s,x)=>s+x.e.compra,0) / totalVenta;
+  const totalFlujo   = conDatos.reduce((s,x)=>s+x.e.flujoNeto,0);
+  const mesesSobreBE = conDatos.filter(x=>x.e.venta>=PARAMS.breakEven).length;
+  const promedioMes  = totalVenta / conDatos.length;
+
+  const kpis = [
+    { l:'Venta total año',       v:fmt$(totalVenta),      c:'blue',                              s:`${conDatos.length} meses con datos` },
+    { l:'Promedio mensual',      v:fmt$(promedioMes),     c:promedioMes>=PARAMS.breakEven?'green':'red', s:'BE: '+fmt$(PARAMS.breakEven) },
+    { l:'CMV promedio año',      v:fmtPct(totalCMVp),     c:totalCMVp<=PARAMS.cmvPct?'green':totalCMVp<=PARAMS.maxCMV?'yellow':'red', s:'Límite: '+fmtPct(PARAMS.maxCMV) },
+    { l:'Flujo neto acumulado',  v:fmt$(totalFlujo),      c:totalFlujo>=0?'green':'red',         s:'Suma del año' },
+    { l:'Meses sobre break even',v:mesesSobreBE+' / '+conDatos.length, c:mesesSobreBE===conDatos.length?'green':mesesSobreBE>conDatos.length/2?'yellow':'red', s:'' },
+    { l:'Ingreso banco acum.',   v:fmt$(totalIngreso),    c:'blue',                              s:fmtPct(totalIngreso/totalVenta)+' de la venta' },
+  ];
+  document.getElementById('anualKPIs').innerHTML = kpis.map(k=>`
+    <div class="kpi ${k.c}">
+      <div class="kpi-label">${k.l}</div>
+      <div class="kpi-value ${k.c}">${k.v}</div>
+      <div class="kpi-sub">${k.s}</div>
+    </div>`).join('');
+
+  // ── Tabla mensual ────────────────────────────────────────────
+  document.getElementById('tbodyAnual').innerHTML = estados.map(({mes, e}) => {
+    const [a,n] = mes.split('-');
+    const nomMes = MESES_NOMBRES[parseInt(n)-1].slice(0,3);
+    if (!e) return `<tr><td><b>${nomMes}</b></td>${'<td style="color:var(--text2);text-align:center">—</td>'.repeat(8)}</tr>`;
+    const difBE = e.venta - PARAMS.breakEven;
+    const beColor = difBE>=0?'var(--green)':'var(--red)';
+    return `<tr onclick="resMesActual='${mes}';showPage('resultados')" style="cursor:pointer" title="Ver detalle de ${nomMes}">
+      <td><b>${nomMes}</b></td>
+      <td style="text-align:right;font-weight:600">${fmt$(e.venta)}</td>
+      <td style="text-align:right">${fmt$(e.ingreso)}</td>
+      <td style="text-align:center;color:${e.cmvPct<=PARAMS.maxCMV?'var(--green)':'var(--red)'}">${e.cmvPct?fmtPct(e.cmvPct):'—'}</td>
+      <td style="text-align:right">${fmt$(e.margenBruto)}</td>
+      <td style="text-align:right">${fmt$(e.costosFijos)}</td>
+      <td style="text-align:right;font-weight:700;color:${e.flujoNeto>=0?'var(--green)':'var(--red)'}">${fmt$(e.flujoNeto)}</td>
+      <td style="text-align:right;color:${beColor}">${difBE>=0?'+':''}${fmt$(difBE)}</td>
+      <td><span class="badge ${e.venta>=PARAMS.breakEven?'green':'red'}">${e.venta>=PARAMS.breakEven?'✓ BE':'✗ Bajo'}</span></td>
+    </tr>`;
+  }).join('');
+
+  // ── Gráficos anuales ─────────────────────────────────────────
+  renderChartsAnuales(estados);
+}
+
+function renderChartsAnuales(estados) {
+  destroyChart('anualVenta'); destroyChart('anualFlujo'); destroyChart('anualCMV');
+
+  const labels  = estados.map(x => MESES_NOMBRES[parseInt(x.mes.split('-')[1])-1].slice(0,3));
+  const ventas  = estados.map(x => x.e?.venta || 0);
+  const flujos  = estados.map(x => x.e?.flujoNeto || null);
+  const cmvs    = estados.map(x => x.e?.cmvPct ? x.e.cmvPct*100 : null);
+  const beArr   = estados.map(() => PARAMS.breakEven);
+  const chartOpts = (y1label) => ({
+    responsive:true, maintainAspectRatio:false,
+    plugins:{ legend:{ labels:{ color:'#6b7280', font:{size:11} } } },
+    scales:{ x:{ ticks:{ color:'#6b7280', font:{size:10} }, grid:{ color:'#e5e7eb' } },
+             y:{ ticks:{ color:'#6b7280', font:{size:10}, callback:v=>'$'+(v/1000).toFixed(0)+'k' }, grid:{ color:'#e5e7eb' } } }
+  });
+
+  charts['anualVenta'] = new Chart(document.getElementById('chartAnualVenta'), {
+    type:'bar', data:{ labels, datasets:[
+      { label:'Venta', data:ventas, backgroundColor:ventas.map(v=>v>=PARAMS.breakEven?'#16a34a33':'#dc262633'), borderColor:ventas.map(v=>v>=PARAMS.breakEven?'#16a34a':'#dc2626'), borderWidth:2, borderRadius:4 },
+      { label:'BE', data:beArr, type:'line', borderColor:'#d97706', borderDash:[5,3], borderWidth:2, pointRadius:0, fill:false },
+    ]}, options: chartOpts()
+  });
+
+  charts['anualFlujo'] = new Chart(document.getElementById('chartAnualFlujo'), {
+    type:'bar', data:{ labels, datasets:[
+      { label:'Flujo neto', data:flujos, backgroundColor:flujos.map(f=>f==null?'#e5e7eb':f>=0?'#16a34a44':'#dc262644'), borderColor:flujos.map(f=>f==null?'#d1d5db':f>=0?'#16a34a':'#dc2626'), borderWidth:2, borderRadius:4 },
+    ]}, options: chartOpts()
+  });
+
+  const cmvOpts = JSON.parse(JSON.stringify(chartOpts()));
+  cmvOpts.scales.y.ticks.callback = v => v+'%';
+  cmvOpts.scales.y.min = 15; cmvOpts.scales.y.max = 50;
+  charts['anualCMV'] = new Chart(document.getElementById('chartAnualCMV'), {
+    type:'line', data:{ labels, datasets:[
+      { label:'CMV %', data:cmvs, borderColor:'#2563eb', backgroundColor:'#2563eb18', fill:true, borderWidth:2, tension:0.3, pointRadius:4, pointBackgroundColor:cmvs.map(v=>v>PARAMS.maxCMV*100?'#dc2626':'#16a34a'), spanGaps:true },
+      { label:'Límite '+fmtPct(PARAMS.maxCMV), data:estados.map(()=>PARAMS.maxCMV*100), borderColor:'#dc2626', borderDash:[5,3], borderWidth:2, pointRadius:0, fill:false },
+      { label:'Histórico '+fmtPct(PARAMS.cmvPct), data:estados.map(()=>PARAMS.cmvPct*100), borderColor:'#16a34a', borderDash:[3,3], borderWidth:1, pointRadius:0, fill:false },
+    ]}, options: cmvOpts
+  });
+}
+
+// ══════════════════════════════════════════════════════
+// CONFIGURACIÓN
+// ══════════════════════════════════════════════════════
+function renderConfig() {
+  const cfg = PARAMS;
+  // Poblar campos
+  document.getElementById('cfg_costosFijos').value = cfg.costosFijos;
+  document.getElementById('cfg_cmvPct').value      = (cfg.cmvPct * 100).toFixed(1);
+  document.getElementById('cfg_tasaConv').value    = (cfg.tasaConv * 100).toFixed(1);
+  document.getElementById('cfg_breakEven').value   = Math.round(cfg.breakEven);
+  document.getElementById('cfg_maxCMV').value      = (cfg.maxCMV * 100).toFixed(1);
+  document.getElementById('cfg_maxPeYa').value     = (cfg.maxPeYaPct * 100).toFixed(1);
+  document.getElementById('cfg_minSaldo').value    = cfg.minSaldo;
+  document.getElementById('cfg_maxDeuda').value    = cfg.maxDeuda;
+  document.getElementById('cfg_peyaMix').value     = (cfg.peyaMix * 100).toFixed(1);
+  document.getElementById('cfg_visaMix').value     = (cfg.visaMix * 100).toFixed(1);
+  document.getElementById('cfg_amexMix').value     = (cfg.amexMix * 100).toFixed(1);
+  document.getElementById('cfg_efvoMix').value     = (cfg.efvoMix * 100).toFixed(1);
+  document.getElementById('cfg_nombre').value      = cfg.nombre || 'Prego Pizza';
+
+  // Validar suma mix en tiempo real
+  ['cfg_peyaMix','cfg_visaMix','cfg_amexMix','cfg_efvoMix'].forEach(id => {
+    document.getElementById(id).oninput = validarMix;
+  });
+  // Recalcular BE al cambiar costos/tasa/cmv
+  ['cfg_costosFijos','cfg_cmvPct','cfg_tasaConv'].forEach(id => {
+    document.getElementById(id).oninput = () => {};
+  });
+
+  renderConfigActual();
+}
+
+function validarMix() {
+  const suma = ['cfg_peyaMix','cfg_visaMix','cfg_amexMix','cfg_efvoMix']
+    .reduce((s, id) => s + (parseFloat(document.getElementById(id).value) || 0), 0);
+  const el = document.getElementById('mixSuma');
+  el.style.display = 'block';
+  if (Math.abs(suma - 100) < 0.2) {
+    el.style.background = 'var(--green-dim)'; el.style.color = 'var(--green)';
+    el.textContent = '✓ Suma correcta: ' + suma.toFixed(1) + '%';
+  } else {
+    el.style.background = 'var(--red-dim)'; el.style.color = 'var(--red)';
+    el.textContent = '⚠ La suma debe ser 100%. Actual: ' + suma.toFixed(1) + '%';
+  }
+}
+
+function calcularBE() {
+  const costos = parseFloat(document.getElementById('cfg_costosFijos').value) || DEFAULTS.costosFijos;
+  const cmv    = (parseFloat(document.getElementById('cfg_cmvPct').value)    || DEFAULTS.cmvPct*100) / 100;
+  const tasa   = (parseFloat(document.getElementById('cfg_tasaConv').value)  || DEFAULTS.tasaConv*100) / 100;
+  const margen = tasa - cmv;
+  if (margen <= 0) { alert('La tasa de conversión debe ser mayor al CMV para que el negocio sea viable.'); return; }
+  const be = costos / margen;
+  document.getElementById('cfg_breakEven').value = Math.round(be);
+}
+
+function guardarConfig() {
+  const costos = parseFloat(document.getElementById('cfg_costosFijos').value);
+  const cmv    = parseFloat(document.getElementById('cfg_cmvPct').value) / 100;
+  const tasa   = parseFloat(document.getElementById('cfg_tasaConv').value) / 100;
+  const be     = parseFloat(document.getElementById('cfg_breakEven').value);
+  const peya   = parseFloat(document.getElementById('cfg_peyaMix').value) / 100;
+  const visa   = parseFloat(document.getElementById('cfg_visaMix').value) / 100;
+  const amex   = parseFloat(document.getElementById('cfg_amexMix').value) / 100;
+  const efvo   = parseFloat(document.getElementById('cfg_efvoMix').value) / 100;
+  const nombre = document.getElementById('cfg_nombre').value.trim() || 'Prego Pizza';
+
+  if (!costos || !cmv || !tasa || !be) {
+    alert('Completá todos los campos de costos antes de guardar.'); return;
+  }
+  const sumaMix = peya + visa + amex + efvo;
+  if (Math.abs(sumaMix - 1) > 0.003) {
+    alert('La suma del mix de canales debe ser 100%. Actual: ' + (sumaMix*100).toFixed(1) + '%'); return;
+  }
+
+  const cfg = {
+    costosFijos: costos, cmvPct: cmv, tasaConv: tasa, breakEven: be,
+    maxCMV: parseFloat(document.getElementById('cfg_maxCMV').value) / 100,
+    maxPeYaPct: parseFloat(document.getElementById('cfg_maxPeYa').value) / 100,
+    minSaldo: parseFloat(document.getElementById('cfg_minSaldo').value),
+    maxDeuda: parseFloat(document.getElementById('cfg_maxDeuda').value),
+    peyaMix: peya, visaMix: visa, amexMix: amex, efvoMix: efvo, nombre,
+  };
+
+  // Contraseña
+  const p1 = document.getElementById('cfg_pass1').value;
+  const p2 = document.getElementById('cfg_pass2').value;
+  if (p1 || p2) {
+    if (p1.length < 4) { alert('La contraseña debe tener al menos 4 caracteres.'); return; }
+    if (p1 !== p2) { alert('Las contraseñas no coinciden.'); return; }
+    localStorage.setItem(PASS_KEY, p1);
+    document.getElementById('cfg_pass1').value = '';
+    document.getElementById('cfg_pass2').value = '';
+  }
+
+  saveConfig(cfg);
+  PARAMS = cfg;
+
+  // Actualizar nombre en header
+  document.querySelector('.header h1').innerHTML = '🍕 ' + nombre + ' <span>Panel de Control Semanal</span>';
+
+  const msg = document.getElementById('configGuardadoMsg');
+  msg.style.display = 'inline';
+  setTimeout(() => msg.style.display = 'none', 2500);
+  renderConfigActual();
+}
+
+function renderConfigActual() {
+  const el = document.getElementById('configActual');
+  const c = PARAMS;
+  const margen = c.tasaConv - c.cmvPct;
+  const beCalc = c.costosFijos / margen;
+  el.innerHTML = [
+    { l: 'Break even mensual',          v: fmt$(c.breakEven),                    note: '' },
+    { l: 'Costos fijos/mes',            v: fmt$(c.costosFijos),                  note: '' },
+    { l: 'CMV %',                       v: fmtPct(c.cmvPct),                     note: 'histórico' },
+    { l: 'Tasa conversión',             v: fmtPct(c.tasaConv),                   note: 'banco / venta' },
+    { l: 'Margen de caja',              v: fmtPct(margen),                       note: 'tasa − CMV' },
+    { l: 'BE calculado (verificación)', v: fmt$(beCalc),                         note: beCalc.toFixed(0) === c.breakEven.toFixed(0) ? '✓ coincide' : '⚠ difiere del manual' },
+    { l: 'Alerta CMV máximo',           v: fmtPct(c.maxCMV),                     note: '' },
+    { l: 'Alerta PeYa máximo',          v: fmtPct(c.maxPeYaPct),                 note: '' },
+    { l: 'Alerta saldo mínimo',         v: fmt$(c.minSaldo),                     note: '' },
+    { l: 'Alerta deuda máxima',         v: fmt$(c.maxDeuda),                     note: '' },
+    { l: 'Mix PeYa / Visa / AMEX / Efvo', v: fmtPct(c.peyaMix)+' / '+fmtPct(c.visaMix)+' / '+fmtPct(c.amexMix)+' / '+fmtPct(c.efvoMix), note: 'suma: '+fmtPct(c.peyaMix+c.visaMix+c.amexMix+c.efvoMix) },
+  ].map(x => `<div class="stat-row"><span style="color:var(--text2)">${x.l}</span><span><b>${x.v}</b>${x.note ? ' <span style="font-size:11px;color:var(--text2)">'+x.note+'</span>' : ''}</span></div>`).join('');
+}
+
+function resetConfig() {
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:#0005;z-index:999;display:flex;align-items:center;justify-content:center;padding:20px';
+  overlay.innerHTML = `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:24px;max-width:320px;width:100%;text-align:center">
+    <div style="font-size:28px;margin-bottom:12px">🔄</div>
+    <div style="font-weight:600;margin-bottom:8px">¿Restaurar valores por defecto?</div>
+    <div style="font-size:13px;color:var(--text2);margin-bottom:20px">Se perderán los cambios de configuración. Los datos de semanas no se tocan.</div>
+    <div style="display:flex;gap:10px;justify-content:center">
+      <button id="confirmReset" style="background:var(--blue);color:#fff;border:none;padding:10px 24px;border-radius:var(--radius-sm);font-weight:600;cursor:pointer">Restaurar</button>
+      <button id="cancelReset" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:10px 24px;border-radius:var(--radius-sm);font-weight:600;cursor:pointer">Cancelar</button>
+    </div></div>`;
+  document.body.appendChild(overlay);
+  document.getElementById('confirmReset').onclick = () => {
+    localStorage.removeItem('pizzeria_config_v1');
+    PARAMS = { ...DEFAULTS };
+    document.body.removeChild(overlay);
+    renderConfig();
+  };
+  document.getElementById('cancelReset').onclick = () => document.body.removeChild(overlay);
+}
+
+function borrarTodosDatos() {
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:#0005;z-index:999;display:flex;align-items:center;justify-content:center;padding:20px';
+  overlay.innerHTML = `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:24px;max-width:340px;width:100%;text-align:center">
+    <div style="font-size:28px;margin-bottom:12px">⚠️</div>
+    <div style="font-weight:600;margin-bottom:8px;color:var(--red)">¿Borrar TODOS los datos?</div>
+    <div style="font-size:13px;color:var(--text2);margin-bottom:20px">Se eliminarán todas las semanas cargadas. Esta acción no tiene vuelta atrás.</div>
+    <div style="display:flex;gap:10px;justify-content:center">
+      <button id="confirmBorrar" style="background:var(--red);color:#fff;border:none;padding:10px 24px;border-radius:var(--radius-sm);font-weight:600;cursor:pointer">Borrar todo</button>
+      <button id="cancelBorrar" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);padding:10px 24px;border-radius:var(--radius-sm);font-weight:600;cursor:pointer">Cancelar</button>
+    </div></div>`;
+  document.body.appendChild(overlay);
+  document.getElementById('confirmBorrar').onclick = () => {
+    saveData([]);
+    document.body.removeChild(overlay);
+    renderDashboard();
+    showPage('dashboard');
+  };
+  document.getElementById('cancelBorrar').onclick = () => document.body.removeChild(overlay);
+}
+
+
+// ══════════════════════════════════════════════════════
+// AUTENTICACIÓN
+// ══════════════════════════════════════════════════════
+const PASS_KEY = 'prego_pass_v1';
+const SESSION_KEY = 'prego_session_v1';
+const DEFAULT_PASS = 'prego2024';
+
+function getPass() {
+  return localStorage.getItem(PASS_KEY) || DEFAULT_PASS;
+}
+
+function estaAutenticado() {
+  return sessionStorage.getItem(SESSION_KEY) === 'ok';
+}
+
+function intentarLogin() {
+  const inp = document.getElementById('loginPass');
+  const err = document.getElementById('loginError');
+  if (inp.value === getPass()) {
+    sessionStorage.setItem(SESSION_KEY, 'ok');
+    document.getElementById('loginOverlay').style.display = 'none';
+    document.getElementById('appContent').style.display = 'block';
+    renderDashboard();
+    err.style.display = 'none';
+    inp.value = '';
+  } else {
+    err.style.display = 'block';
+    inp.value = '';
+    inp.focus();
+  }
+}
+
+function conectarYSincronizar() {
+  const btn = document.getElementById('btnSync');
+  btn.textContent = '☁ Conectando...';
+  btn.disabled = true;
+  iniciarGoogleAuth(async () => {
+    btn.textContent = '☁ Sincronizando...';
+    await syncBajar();   // bajar primero (datos más recientes del servidor)
+    await syncSubir();   // luego subir cambios locales si hay
+    btn.textContent = '☁ Sync ✓';
+    btn.disabled = false;
+    setTimeout(() => { btn.textContent = '☁ Sync'; }, 3000);
+  });
+}
+
+// Auto-sync al guardar datos (reemplaza saveData/saveVentasDia en los formularios)
+function marcarPendiente() {
+  gSyncPending = true;
+  // Intentar sync automático si ya tenemos token
+  if (gToken) {
+    clearTimeout(window._syncTimer);
+    window._syncTimer = setTimeout(syncSubir, 2000); // debounce 2s
+  }
+}
+
+function cerrarSesion() {
+  sessionStorage.removeItem(SESSION_KEY);
+  document.getElementById('appContent').style.display = 'none';
+  document.getElementById('loginOverlay').style.display = 'flex';
+  document.getElementById('loginPass').focus();
+}
+
+function checkAuth() {
+  if (estaAutenticado()) {
+    document.getElementById('loginOverlay').style.display = 'none';
+    document.getElementById('appContent').style.display = 'block';
+    renderDashboard();
+    // Intentar conectar Google silenciosamente al cargar
+    setTimeout(() => {
+      try {
+        iniciarGoogleAuth(async () => {
+          await syncBajar();
+          if (gSyncPending) await syncSubir();
+        });
+      } catch(e) { /* sin popup si no está autorizado aún */ }
+    }, 800);
+  } else {
+    document.getElementById('loginOverlay').style.display = 'flex';
+    document.getElementById('appContent').style.display = 'none';
+    setTimeout(() => document.getElementById('loginPass').focus(), 100);
+  }
+}
+
+// ══════════════════════════════════════════════════════
+// EXPORTAR — PDF Y EXCEL
+// ══════════════════════════════════════════════════════
+function exportData() {
+  // Mostrar menú de exportación
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:#0005;z-index:999;display:flex;align-items:center;justify-content:center;padding:20px';
+  overlay.innerHTML = `
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:28px;max-width:360px;width:100%">
+      <div style="font-size:16px;font-weight:700;margin-bottom:6px">⬇ Exportar datos</div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:20px">Elegí el formato y qué querés exportar</div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <button onclick="exportPDFResultados();this.closest('[style]').remove()" style="background:var(--red-dim);color:var(--red);border:1px solid var(--red);padding:12px 16px;border-radius:var(--radius-sm);font-weight:600;cursor:pointer;text-align:left;font-size:13px">
+          📄 PDF — Estado de resultados mensual<br><span style="font-size:11px;font-weight:400;opacity:.8">Mes actual con análisis y recomendaciones</span>
+        </button>
+        <button onclick="exportExcelSemanas();this.closest('[style]').remove()" style="background:var(--green-dim);color:var(--green);border:1px solid var(--green);padding:12px 16px;border-radius:var(--radius-sm);font-weight:600;cursor:pointer;text-align:left;font-size:13px">
+          📊 CSV — Datos de todas las semanas<br><span style="font-size:11px;font-weight:400;opacity:.8">Abre directo en Excel · Historial completo</span>
+        </button>
+        <button onclick="exportExcelResultados();this.closest('[style]').remove()" style="background:var(--blue-dim);color:var(--blue);border:1px solid var(--blue);padding:12px 16px;border-radius:var(--radius-sm);font-weight:600;cursor:pointer;text-align:left;font-size:13px">
+          📊 CSV — Resultados + análisis mensual<br><span style="font-size:11px;font-weight:400;opacity:.8">Abre directo en Excel · Mes a mes con recomendaciones</span>
+        </button>
+        <button onclick="this.closest('[style]').remove()" style="background:var(--bg3);color:var(--text2);border:1px solid var(--border);padding:10px;border-radius:var(--radius-sm);font-weight:600;cursor:pointer;font-size:13px">Cancelar</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', e => { if (e.target===overlay) overlay.remove(); });
+}
+
+// ── PDF Estado de Resultados (HTML→Print, sin librería) ─────────
+function exportPDFResultados() {
+  const mes = resMesActual || (()=>{ const h=new Date(); return h.getFullYear()+'-'+String(h.getMonth()+1).padStart(2,'0'); })();
+  const e = buildEstado(mes);
+  const [ano, mesN] = mes.split('-');
+  const nomMes = MESES_NOMBRES[parseInt(mesN)-1] + ' ' + ano;
+
+  const analisis = e ? generarAnalisis(e, mes) : { bloques: [] };
+
+  const filas = e ? [
+    { l:'Venta bruta (cierre Z)',      v:e.venta,               tipo:'normal' },
+    { l:'&nbsp;&nbsp;− Descuentos canales', v:-(e.venta-e.ingresoBase), tipo:'sub' },
+    e.scotiaNeto ? { l:'&nbsp;&nbsp;+ Cobro Scotia/AMEX', v:e.scotiaNeto, tipo:'sub_pos' } : null,
+    { l:'TOTAL INGRESADO AL BANCO',    v:e.ingreso,             tipo:'subtotal' },
+    { l:'&nbsp;&nbsp;− Costo mercadería (CMV)', v:-e.compra,   tipo:'sub' },
+    { l:'MARGEN BRUTO',                v:e.margenBruto,         tipo:'total', pct:e.margenBruto/e.venta },
+    { l:'&nbsp;&nbsp;− Costos fijos',  v:-e.costosFijos,        tipo:'sub' },
+    { l:'FLUJO NETO',                  v:e.flujoNeto,           tipo:'total_final' },
+    e.deudaFinal ? { l:'Deuda proveedores al cierre', v:e.deudaFinal, tipo:'info' } : null,
+  ].filter(Boolean) : [];
+
+  const html = `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Prego Pizza — Resultados ${nomMes}</title>
+<style>
+  @page { margin: 15mm 18mm; }
+  body { font-family: Arial, sans-serif; font-size: 12px; color: #1a202c; margin:0; }
+  .header { background: #1e3a8a; color: white; padding: 16px 20px; border-radius: 8px; margin-bottom: 20px; }
+  .header h1 { margin:0; font-size:20px; }
+  .header p  { margin:4px 0 0; font-size:11px; opacity:.8; }
+  .kpis { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-bottom:20px; }
+  .kpi  { border:1px solid #e5e7eb; border-radius:8px; padding:10px 12px; }
+  .kpi .lbl { font-size:10px; color:#6b7280; text-transform:uppercase; letter-spacing:.4px; }
+  .kpi .val { font-size:16px; font-weight:800; margin-top:4px; }
+  .kpi.ok .val  { color:#16a34a; } .kpi.ok  { border-color:#16a34a; background:#f0fdf4; }
+  .kpi.bad .val { color:#dc2626; } .kpi.bad { border-color:#dc2626; background:#fef2f2; }
+  .kpi.info .val{ color:#2563eb; } .kpi.info{ border-color:#93c5fd; background:#eff6ff; }
+  h2 { font-size:13px; color:#1e3a8a; text-transform:uppercase; letter-spacing:.5px; border-bottom:2px solid #1e3a8a; padding-bottom:6px; margin:20px 0 10px; }
+  table { width:100%; border-collapse:collapse; font-size:12px; }
+  tr.normal td { padding:5px 8px; }
+  tr.sub td    { padding:3px 8px; color:#6b7280; font-size:11px; }
+  tr.sub_pos td{ padding:3px 8px; color:#16a34a; font-size:11px; }
+  tr.subtotal td { padding:6px 8px; background:#f0f9ff; font-weight:600; border-top:1px solid #bfdbfe; border-bottom:1px solid #bfdbfe; }
+  tr.total td    { padding:6px 8px; background:#f8fafc; font-weight:700; border-top:1px solid #e2e8f0; }
+  tr.total_final td { padding:8px 8px; font-weight:800; font-size:13px; border-top:2px solid #1e3a8a; border-bottom:2px solid #1e3a8a; }
+  tr.info td  { padding:4px 8px; color:#6b7280; font-size:11px; border-top:1px dashed #e2e8f0; }
+  .pos { color:#16a34a; } .neg { color:#dc2626; } .neutral { color:#1a202c; }
+  td:last-child { text-align:right; font-variant-numeric: tabular-nums; }
+  .bloque { border-radius:6px; padding:10px 14px; margin-bottom:10px; page-break-inside:avoid; }
+  .bloque-ok     { background:#f0fdf4; border-left:4px solid #16a34a; }
+  .bloque-alerta { background:#fef2f2; border-left:4px solid #dc2626; }
+  .bloque-aviso  { background:#fffbeb; border-left:4px solid #f59e0b; }
+  .bloque-titulo { font-weight:700; font-size:12px; margin-bottom:4px; }
+  .bloque-ok .bloque-titulo     { color:#16a34a; }
+  .bloque-alerta .bloque-titulo { color:#dc2626; }
+  .bloque-aviso .bloque-titulo  { color:#b45309; }
+  .bloque-texto { font-size:11px; line-height:1.6; color:#374151; }
+  .footer { margin-top:24px; text-align:center; font-size:10px; color:#9ca3af; border-top:1px solid #e5e7eb; padding-top:8px; }
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>🍕 Prego Pizza — Estado de Resultados</h1>
+  <p>${nomMes} &nbsp;|&nbsp; Generado: ${new Date().toLocaleDateString('es-UY', {day:'2-digit',month:'long',year:'numeric'})}</p>
+</div>
+
+${e ? `
+<div class="kpis">
+  <div class="kpi ${e.venta>=PARAMS.breakEven?'ok':'bad'}">
+    <div class="lbl">Venta del mes</div>
+    <div class="val">${fmt$(e.venta)}</div>
+    <div style="font-size:10px;color:#6b7280;margin-top:2px">BE: ${fmt$(PARAMS.breakEven)}</div>
+  </div>
+  <div class="kpi info">
+    <div class="lbl">Ingreso al banco</div>
+    <div class="val">${fmt$(e.ingreso)}</div>
+    <div style="font-size:10px;color:#6b7280;margin-top:2px">Tasa: ${fmtPct(e.tasaConv)}</div>
+  </div>
+  <div class="kpi ${!e.cmvPct||e.cmvPct<=PARAMS.maxCMV?'ok':'bad'}">
+    <div class="lbl">CMV %</div>
+    <div class="val">${e.cmvPct?fmtPct(e.cmvPct):'—'}</div>
+    <div style="font-size:10px;color:#6b7280;margin-top:2px">Límite: ${fmtPct(PARAMS.maxCMV)}</div>
+  </div>
+  <div class="kpi ${e.flujoNeto>=0?'ok':'bad'}">
+    <div class="lbl">Flujo neto</div>
+    <div class="val">${fmt$(e.flujoNeto)}</div>
+    <div style="font-size:10px;color:#6b7280;margin-top:2px">${e.flujoNeto>=0?'Positivo':'Negativo'}</div>
+  </div>
+</div>
+
+<h2>Estado de Resultados</h2>
+<table>
+${filas.map(f => {
+  const esTot = ['subtotal','total','total_final'].includes(f.tipo);
+  const colorCls = f.tipo==='total_final' ? (f.v>=0?'pos':'neg') : f.v<0?'neg':'neutral';
+  return `<tr class="${f.tipo}">
+    <td>${f.l}${f.pct?` <span style="font-size:10px;color:#6b7280">(${fmtPct(f.pct)})</span>`:''}
+    </td>
+    <td class="${colorCls}">${fmt$(Math.abs(f.v||0))}</td>
+  </tr>`;
+}).join('')}
+</table>` : '<p style="color:#6b7280">Sin datos para este mes.</p>'}
+
+<h2>Análisis y Recomendaciones</h2>
+${analisis.bloques.map(b => `
+  <div class="bloque bloque-${b.tipo}">
+    <div class="bloque-titulo">${b.titulo}</div>
+    <div class="bloque-texto">${b.texto}</div>
+  </div>`).join('')}
+
+<div class="footer">Prego Pizza — Panel de Control Semanal | Confidencial | ${new Date().getFullYear()}</div>
+</body></html>`;
+
+  const win = window.open('', '_blank');
+  win.document.write(html);
+  win.document.close();
+  win.focus();
+  setTimeout(() => win.print(), 500);
+}
+
+// ── Análisis financiero con recomendaciones ──────────────────────
+function generarAnalisis(e, mes) {
+  if (!e) return { bloques: [] };
+  const bloques = [];
+  const deudaActual = e.deudaFinal || 0;
+
+  // 1. Resultado del mes
+  if (e.flujoNeto >= 0) {
+    bloques.push({ tipo:'ok', titulo:'✓ Mes positivo',
+      texto: `El mes cerró con flujo positivo de ${fmt$(e.flujoNeto)}. La venta de ${fmt$(e.venta)} superó ${e.venta>=PARAMS.breakEven?'el break even de '+fmt$(PARAMS.breakEven):'el mínimo esperado'}. Margen bruto: ${fmtPct(e.margenBruto/e.venta)}.` });
+  } else {
+    bloques.push({ tipo:'alerta', titulo:'✗ Mes negativo',
+      texto: `El mes cerró con flujo negativo de ${fmt$(e.flujoNeto)}. La venta de ${fmt$(e.venta)} estuvo ${fmt$(PARAMS.breakEven - e.venta)} por debajo del break even. Para cubrir costos fijos de ${fmt$(e.costosFijos)} se necesitaba vender ${fmt$(PARAMS.breakEven)}.` });
+  }
+
+  // 2. Deuda de proveedores
+  if (deudaActual > 0) {
+    const cuotaRecomendada = Math.min(deudaActual * 0.15, e.flujoNeto * 0.5);
+    const mesesParaSaldar = cuotaRecomendada > 0 ? Math.ceil(deudaActual / cuotaRecomendada) : null;
+    bloques.push({ tipo:'aviso', titulo:'⚠ Deuda de proveedores: ' + fmt$(deudaActual),
+      texto: `Objetivo: saldar esta deuda antes de maximizar retiros. Abono recomendado este mes: ${fmt$(Math.max(cuotaRecomendada,0))} (15% de la deuda o 50% del flujo neto, lo menor).${mesesParaSaldar ? ' A ese ritmo quedaría saldada en aprox. ' + mesesParaSaldar + ' meses.' : ' Para poder abonar más, la venta debe superar el break even.'}` });
+  } else {
+    bloques.push({ tipo:'ok', titulo:'✓ Sin deuda de proveedores',
+      texto: 'No hay deuda pendiente con proveedores. El flujo puede destinarse a retiro o reinversión.' });
+  }
+
+  // 3. Recomendación de retiro
+  const retiroMax = calcularRetiroRecomendado(e);
+  bloques.push({ tipo: retiroMax.tipo, titulo: retiroMax.titulo, texto: retiroMax.texto });
+
+  // 4. CMV
+  if (e.cmvPct) {
+    if (e.cmvPct > PARAMS.maxCMV) {
+      bloques.push({ tipo:'alerta', titulo:'✗ CMV alto: ' + fmtPct(e.cmvPct),
+        texto: `El costo de mercadería superó el límite de ${fmtPct(PARAMS.maxCMV)}. Revisar precios de compra, mermas y control de stock. Un CMV del ${fmtPct(PARAMS.cmvPct)} (histórico) implica ${fmt$(e.venta*PARAMS.cmvPct)} de compra — la diferencia es ${fmt$(e.compra - e.venta*PARAMS.cmvPct)}.` });
+    } else {
+      bloques.push({ tipo:'ok', titulo:'✓ CMV bajo control: ' + fmtPct(e.cmvPct),
+        texto: `El costo de mercadería está dentro del rango histórico del ${fmtPct(PARAMS.cmvPct)}.` });
+    }
+  }
+
+  return { bloques };
+}
+
+function calcularRetiroRecomendado(e) {
+  const deuda = e.deudaFinal || 0;
+  const saldo = e.saldoFinal || 0;
+  const flujo = e.flujoNeto || 0;
+
+  // Saldo mínimo operativo que debe quedar
+  const saldoMin = PARAMS.minSaldo;
+
+  if (deuda > 0) {
+    // Fase 1: achicando deuda
+    const disponible = Math.max(0, flujo);
+    // Reservar 50% para abonar deuda, 20% colchón, 30% posible retiro
+    const paraDeuda = disponible * 0.50;
+    const retiro = Math.max(0, disponible * 0.30);
+    const mesesSaldar = paraDeuda > 0 ? Math.ceil(deuda / paraDeuda) : null;
+    if (retiro < 5000) {
+      return { tipo:'aviso', titulo:'💰 Retiro recomendado: mínimo o ninguno',
+        texto: `Con deuda de ${fmt$(deuda)} y flujo de ${fmt$(flujo)}, priorizar el pago a proveedores. Retiro máximo prudente: ${fmt$(retiro)}. Abonar deuda: ${fmt$(paraDeuda)}/mes.${mesesSaldar?' Deuda saldada en aprox. '+mesesSaldar+' meses.':''}` };
+    }
+    return { tipo:'aviso', titulo:'💰 Retiro recomendado: ' + fmt$(retiro),
+      texto: `Fase de desendeudamiento. Distribución sugerida del flujo: ${fmt$(paraDeuda)} a deuda proveedores (50%), ${fmt$(flujo*0.20)} a colchón de caja (20%), ${fmt$(retiro)} de retiro (30%). A este ritmo la deuda se salda en ${mesesSaldar||'?'} meses.` };
+  } else {
+    // Fase 2: deuda saldada — maximizar retiro sostenible
+    const colchon = Math.max(0, saldoMin - saldo);
+    const retiroMax = Math.max(0, flujo - colchon);
+    return { tipo:'ok', titulo:'💰 Retiro recomendado: ' + fmt$(retiroMax),
+      texto: `Sin deuda de proveedores. Podés retirar hasta ${fmt$(retiroMax)} manteniendo un colchón mínimo de ${fmt$(saldoMin)} en banco. Flujo neto del mes: ${fmt$(flujo)}. Para maximizar rentabilidad, mantener venta sobre ${fmt$(PARAMS.breakEven*1.1)}.` };
+  }
+}
+
+// ── Excel — Todas las semanas (CSV nativo, abre en Excel) ──────
+function exportExcelSemanas() {
+  const data = loadData();
+  if (!data.length) { alert('No hay semanas cargadas.'); return; }
+
+  const cols = ['Semana','Fecha Inicio','Fecha Fin','Días','Venta $','Ingreso Banco $',
+    'CMV $','CMV %','Margen Bruto $','PeYa $','PeYa %','Visa/MC $','AMEX $','Efectivo $',
+    'Pago Proveedores $','Saldo Banco $','Deuda Proveedores $',
+    'Scotia cobrado $','Mes Scotia','Nota'];
+
+  const rows = [cols];
+  data.forEach((s,i) => {
+    const ingreso = s.ingresoBanco||0;
+    rows.push([i+1, s.fechaIni, s.fechaFin, s.dias,
+      s.venta||0, Math.round(ingreso),
+      s.compra||0, s.cmvPct ? (s.cmvPct*100).toFixed(1)+'%' : '',
+      Math.round(ingreso-(s.compra||0)),
+      s.peya||0, s.peyaPct ? (s.peyaPct*100).toFixed(1)+'%' : '',
+      s.visa||0, s.amex||0, s.efvo||0,
+      s.pagoProv||0, s.saldo||0, s.deuda||0,
+      s.scotiaBruto||0, s.scotiaMes||'', s.nota||'']);
+  });
+
+  descargarCSV(rows, 'Prego_Semanas_' + new Date().toISOString().slice(0,10) + '.csv');
+}
+
+// ── Excel — Resultados mensuales (CSV nativo) ───────────────────
+function exportExcelResultados() {
+  const diasData = loadVentasDia();
+  const semsData = loadData();
+  const meses = new Set([
+    ...Object.keys(diasData).map(f=>f.slice(0,7)),
+    ...semsData.map(s=>s.fechaIni.slice(0,7))
+  ]);
+  const mesesOrdenados = [...meses].sort();
+  if (!mesesOrdenados.length) { alert('No hay datos.'); return; }
+
+  // Hoja 1: resumen mensual
+  const cols1 = ['Mes','Venta $','Ingreso Banco $','Scotia $','Total Ingresado $',
+    'CMV $','CMV %','Margen Bruto $','Margen %','Costos Fijos $','Flujo Neto $',
+    'Break Even $','Dif vs BE $','Saldo Cierre $','Deuda Prov $','Resultado'];
+  const rows1 = [cols1];
+  mesesOrdenados.forEach(m => {
+    const e = buildEstado(m);
+    const nomM = MESES_NOMBRES[parseInt(m.split('-')[1])-1]+' '+m.split('-')[0];
+    if (!e) { rows1.push([nomM,...Array(15).fill('')]); return; }
+    rows1.push([nomM, e.venta, Math.round(e.ingresoBase), e.scotiaNeto||0, Math.round(e.ingreso),
+      e.compra||0, e.cmvPct?(e.cmvPct*100).toFixed(1)+'%':'',
+      Math.round(e.margenBruto), ((e.margenBruto/e.venta)*100).toFixed(1)+'%',
+      e.costosFijos, Math.round(e.flujoNeto),
+      PARAMS.breakEven, Math.round(e.venta-PARAMS.breakEven),
+      e.saldoFinal||'', e.deudaFinal||'',
+      e.flujoNeto>=0?'POSITIVO':'NEGATIVO']);
+  });
+
+  // Hoja 2: análisis (en mismo CSV, separado por líneas en blanco)
+  const cols2 = ['Mes','Flujo Neto','Deuda Prov','Retiro Recomendado','Estado','Análisis'];
+  const rows2 = [[], ['=== ANÁLISIS Y RECOMENDACIONES ==='], cols2];
+  mesesOrdenados.forEach(m => {
+    const e = buildEstado(m);
+    if (!e) return;
+    const an = generarAnalisis(e, m);
+    const ret = an.bloques.find(b=>b.titulo.includes('Retiro'));
+    const nomM = MESES_NOMBRES[parseInt(m.split('-')[1])-1]+' '+m.split('-')[0];
+    rows2.push([nomM, Math.round(e.flujoNeto), e.deudaFinal||0,
+      ret ? ret.titulo.replace('💰 Retiro recomendado: ','') : '',
+      e.flujoNeto>=0?'POSITIVO':'NEGATIVO',
+      an.bloques.map(b=>b.titulo+': '+b.texto).join(' | ')]);
+  });
+
+  descargarCSV([...rows1,...rows2], 'Prego_Resultados_' + new Date().toISOString().slice(0,10) + '.csv');
+}
+
+// ── Utilidad: descargar CSV ──────────────────────────────────────
+function descargarCSV(rows, filename) {
+  const bom = '﻿'; // BOM para que Excel abra con tildes correctas
+  const csv = bom + rows.map(r =>
+    r.map(v => {
+      const s = String(v==null?'':v).replace(/"/g,'""');
+      return /[,"
+
+]/.test(s) ? '"'+s+'"' : s;
+    }).join(',')
+  ).join('
+');
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+
+// ══════════════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════════════
+
+// Set default dates (last Monday to Sunday)
+function setDefaultDates() {
+  // Ya no hay f_fechaIni/Fin en la carga — la semana se maneja con cargaSemIni
+  // Esta función queda como no-op pero se mantiene para compatibilidad
+}
+
+function loadDemoData() {
+  // Sin datos de ejemplo — el usuario carga sus propias semanas
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  setDefaultDates();
+  cargaSemIni = lunesDe(new Date().toISOString().slice(0,10));
+  const _hoy = new Date();
+  anualAno = _hoy.getFullYear();
+  resMesActual = _hoy.getFullYear() + '-' + String(_hoy.getMonth()+1).padStart(2,'0');
+  loadDemoData();
+  const _cfg = loadConfig();
+  if (_cfg.nombre && _cfg.nombre !== 'Prego Pizza') {
+    document.querySelector('.header h1').innerHTML = '🍕 ' + _cfg.nombre + ' <span>Panel de Control Semanal</span>';
+  }
+  checkAuth();
+});
+</script>
+
+
+</div><!-- /appContent -->
+</body>
+</html>
