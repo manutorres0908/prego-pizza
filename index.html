@@ -396,7 +396,10 @@
 <!-- ════════════════ HISTORICO ════════════════ -->
 <div id="page-historico" class="page">
   <div class="card">
-    <div class="card-title">Historial de semanas cargadas <span id="countSemanas"></span></div>
+    <div class="card-title" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+      <span>Historial de semanas cargadas <span id="countSemanas"></span></span>
+      <button class="btn btn-ghost" onclick="abrirModalMesCompleto()" style="font-size:12px">📅 Cargar mes completo</button>
+    </div>
     <div class="tbl-wrap">
       <table id="tablaHistorico">
         <thead>
@@ -717,6 +720,13 @@
 
   <!-- KPIs Flujo -->
   <div id="flujoKPIs" class="kpi-grid" style="margin-bottom:20px"></div>
+
+  <!-- Nota informativa sobre compras de proveedores -->
+  <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 14px;margin-bottom:16px;font-size:12px;color:var(--text2);display:flex;gap:10px;align-items:flex-start">
+    <span style="font-size:16px">ℹ️</span>
+    <span><b style="color:var(--text)">¿Dónde cargo las compras a proveedores?</b><br>
+    Las <b>compras recibidas</b> y la <b>deuda con proveedores</b> se registran en <b>Cargar Semana</b> (campos "Compra proveedores" y "Deuda prov."). El Flujo de Caja registra únicamente movimientos de banco/efectivo — pagos realizados, cobros e ingresos.</span>
+  </div>
 
   <!-- Alertas de vencimientos próximos -->
   <div id="flujoAlertas" style="margin-bottom:20px"></div>
@@ -1538,6 +1548,7 @@ function guardarSemana() {
   if (_btn) { _btn.textContent = '💾 Actualizar datos operativos'; _btn.style.background = 'var(--green)'; }
   document.getElementById('lastUpdate').textContent = 'Último guardado: ' + new Date().toLocaleDateString('es-UY');
   renderDashboard();
+  renderHistorico();
 }
 
 function toggleEditScotia() {
@@ -2007,7 +2018,9 @@ function renderProgMes(data) {
     return;
   }
 
-  const ventaMes = semsDelMes.reduce((s,x) => s + x.venta, 0) + (_vmHoy.dias > 0 ? _vmHoy.venta : 0);
+  const ventaMes = _vmHoy.dias > 0
+    ? _vmHoy.venta
+    : semsDelMes.reduce((s,x) => s + x.venta, 0);
   const semsLabel = semsDelMes.length === 1 ? '1 semana' : `${semsDelMes.length} semanas`;
   const mesLabel = hoy.toLocaleDateString('es-UY', {month:'long', year:'numeric'});
 
@@ -2106,7 +2119,7 @@ function renderHistorico() {
     const warn = !ok && (!(!cmvOk) || !(!peyaOk) || !(!saldoOk));
 
     return `<tr>
-      <td>${s.fechaIni.slice(5)} → ${s.fechaFin.slice(5)}</td>
+      <td>${s.fechaIni.slice(5)} → ${s.fechaFin.slice(5)}${s.esMensual ? ' <span class="badge" style="background:var(--blue-dim);color:var(--blue);font-size:10px">MES</span>' : ''}</td>
       <td style="text-align:center">${s.dias}</td>
       <td style="text-align:right;font-weight:600">${fmt$(s.venta)}</td>
       <td style="text-align:right;color:${s.ventaDia >= objetivoDiario(s.fechaIni) ? 'var(--green)' : s.ventaDia >= objetivoDiario(s.fechaIni)*0.92 ? 'var(--yellow)' : 'var(--red)'}" title="Obj. ${textoObjetivoDia(s.fechaIni)}">${fmt$(s.ventaDia)}</td>
@@ -2185,10 +2198,8 @@ function renderChartDeuda(data) {
 // PROYECCION
 // ══════════════════════════════════════════════════════
 function renderProyeccion() {
-  simular();
-  renderTablaBreakeven();
+  simular(); // llama renderTablaBreakeven() y renderTablaPeya() internamente
   renderChartEscenarios();
-  renderTablaPeya();
 }
 
 function simular() {
@@ -2222,14 +2233,18 @@ function simular() {
       <div style="font-size:28px;font-weight:800;color:${color}">${flujoNeto > 0 ? fmt$(retiroMax) : 'No retirar'}</div>
       <div style="font-size:11px;color:var(--text2);margin-top:4px">${flujoNeto > 0 ? `Dejando $${Math.round(flujoNeto*0.20/1000)}k como reserva` : `Déficit de ${fmt$(Math.abs(flujoNeto))} — cubrir con saldo bancario`}</div>
     </div>`;
+  // Actualizar tablas dependientes del escenario
+  renderTablaBreakeven();
+  renderTablaPeya();
 }
 
 function renderTablaBreakeven() {
   const el = document.getElementById('tablaBreakeven');
+  const ventaSim = parseFloat(document.getElementById('sim_venta').value) || 950000;
   const rows = [0, 20000, 30000, 40000, 50000, 65000, 80000, 100000, 120000].map(retiro => {
     const ventaNec = (PARAMS.costosFijos + retiro / 0.80) / (PARAMS.tasaConv - PARAMS.cmvPct);
-    const dif = ventaNec - 879000;
-    const color = dif <= 0 ? 'var(--green)' : dif <= 100000 ? 'var(--yellow)' : dif <= 200000 ? 'var(--red)' : 'var(--red)';
+    const dif = ventaNec - ventaSim;
+    const color = dif <= 0 ? 'var(--green)' : dif <= 100000 ? 'var(--yellow)' : 'var(--red)';
     return `<div class="stat-row">
       <span>${retiro === 0 ? 'Break even (sin retiro)' : fmt$(retiro) + '/mes'}</span>
       <span style="display:flex;gap:12px;align-items:center">
@@ -2238,7 +2253,7 @@ function renderTablaBreakeven() {
       </span>
     </div>`;
   });
-  el.innerHTML = `<div style="font-size:11px;color:var(--text2);margin-bottom:8px;display:flex;justify-content:space-between"><span>Retiro objetivo</span><span>Dif. vs prom. actual &nbsp; Venta necesaria</span></div>` + rows.join('');
+  el.innerHTML = `<div style="font-size:11px;color:var(--text2);margin-bottom:8px;display:flex;justify-content:space-between"><span>Retiro objetivo</span><span>Dif. vs escenario (${fmt$(ventaSim)}) &nbsp; Venta necesaria</span></div>` + rows.join('');
 }
 
 function renderChartEscenarios() {
@@ -2264,23 +2279,29 @@ function renderChartEscenarios() {
 
 function renderTablaPeya() {
   const el = document.getElementById('tablaPeya');
+  const ventaSim = parseFloat(document.getElementById('sim_venta').value) || 950000;
+  // Ingreso base con PeYa al 34% (redistribuyendo a Visa el resto)
+  const visaBase = (1 - 0.34 - 0.07 - 0.073) * 0.88;
+  const ingresoBase = calcIngresoBanco(ventaSim, 0.34, visaBase, 0.07, 0.073);
   const rows = [34, 32, 30, 28, 25, 22, 20].map(peya => {
     const peyaPct = peya / 100;
-    const ingreso = calcIngresoBanco(950000, peyaPct, null, 0.07, 0.073);
-    const flujo = ingreso - 950000 * PARAMS.cmvPct - PARAMS.costosFijos;
+    // Redistribuir ventas que salen de PeYa hacia Visa/Master
+    const visaPct = (1 - peyaPct - 0.07 - 0.073) * 0.88;
+    const ingreso = calcIngresoBanco(ventaSim, peyaPct, visaPct, 0.07, 0.073);
+    const flujo = ingreso - ventaSim * PARAMS.cmvPct - PARAMS.costosFijos;
     const retiro = Math.max(0, flujo * 0.80);
-    const ganancia = ingreso - calcIngresoBanco(950000, 0.34, null, 0.07, 0.073);
+    const ganancia = ingreso - ingresoBase;
     const color = peya <= 25 ? 'var(--green)' : peya <= 30 ? 'var(--yellow)' : 'var(--text)';
     return `<div class="stat-row">
       <span>PeYa al <b style="color:${color}">${peya}%</b></span>
       <span style="display:flex;gap:20px;font-size:12px">
-        <span style="color:var(--green)">${ganancia > 0 ? '+' + fmt$(ganancia) + '/mes' : 'base'}</span>
+        <span style="color:${ganancia >= 0 ? 'var(--green)' : 'var(--red)'}">${ganancia === 0 ? 'base' : (ganancia > 0 ? '+' : '') + fmt$(ganancia) + '/mes'}</span>
         <span>Flujo: <b style="color:${flujo>0?'var(--green)':'var(--red)'}">${fmt$(flujo)}</b></span>
         <span>Retiro: <b style="color:var(--blue)">${fmt$(retiro)}</b></span>
       </span>
     </div>`;
   });
-  el.innerHTML = `<div style="font-size:11px;color:var(--text2);margin-bottom:8px;display:flex;justify-content:space-between"><span>% PeYa de venta</span><span>Ganancia extra &nbsp; Flujo neto &nbsp; Retiro posible</span></div>` + rows.join('');
+  el.innerHTML = `<div style="font-size:11px;color:var(--text2);margin-bottom:8px;display:flex;justify-content:space-between"><span>% PeYa de venta</span><span>Ganancia extra vs 34% &nbsp; Flujo neto &nbsp; Retiro posible</span></div>` + rows.join('');
 }
 
 // ══════════════════════════════════════════════════════
@@ -2407,6 +2428,131 @@ function guardarEdicion() {
 
 
 
+// ── Carga de mes completo (datos históricos mensuales) ─────────
+function abrirModalMesCompleto() {
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:#0006;z-index:999;display:flex;align-items:center;justify-content:center;padding:16px';
+  const hoy = new Date();
+  const mesDefault = hoy.getFullYear() + '-' + String(hoy.getMonth()).padStart(2,'0'); // mes anterior
+  overlay.innerHTML = `
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:24px;width:min(500px,95vw);max-height:90vh;overflow-y:auto">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+        <h3 style="font-size:15px;font-weight:700">📅 Cargar mes completo</h3>
+        <button onclick="this.closest('[style]').remove()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--text2)">×</button>
+      </div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:14px;background:var(--bg3);padding:8px 10px;border-radius:6px">
+        Usá esto para cargar datos de meses completos (ej: enero, febrero) cuando tenés el resumen mensual pero no semanal. Se crea un único registro que cubre todo el mes.
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="form-group" style="grid-column:1/-1">
+          <label>Mes a cargar</label>
+          <input type="month" id="mc_mes" value="${mesDefault}" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:10px;border-radius:var(--radius-sm);font-size:14px;outline:none;width:100%">
+        </div>
+        <div class="form-group" style="grid-column:1/-1">
+          <label>Venta total del mes $</label>
+          <input type="number" id="mc_venta" placeholder="ej: 950000" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:10px;border-radius:var(--radius-sm);font-size:14px;outline:none;width:100%">
+        </div>
+        <div class="form-group">
+          <label>PedidosYa $ (opcional)</label>
+          <input type="number" id="mc_peya" placeholder="ej: 320000" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:10px;border-radius:var(--radius-sm);font-size:14px;outline:none;width:100%">
+        </div>
+        <div class="form-group">
+          <label>Visa/Master $ (opcional)</label>
+          <input type="number" id="mc_visa" placeholder="ej: 380000" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:10px;border-radius:var(--radius-sm);font-size:14px;outline:none;width:100%">
+        </div>
+        <div class="form-group">
+          <label>AMEX $ (opcional)</label>
+          <input type="number" id="mc_amex" placeholder="ej: 65000" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:10px;border-radius:var(--radius-sm);font-size:14px;outline:none;width:100%">
+        </div>
+        <div class="form-group">
+          <label>Efectivo/Transf $ (opcional)</label>
+          <input type="number" id="mc_efvo" placeholder="ej: 70000" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:10px;border-radius:var(--radius-sm);font-size:14px;outline:none;width:100%">
+        </div>
+        <div class="form-group">
+          <label>Compra proveedores $ (CMV)</label>
+          <input type="number" id="mc_compra" placeholder="ej: 307000" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:10px;border-radius:var(--radius-sm);font-size:14px;outline:none;width:100%">
+        </div>
+        <div class="form-group">
+          <label>Pago a proveedores $</label>
+          <input type="number" id="mc_pagoProv" placeholder="ej: 290000" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:10px;border-radius:var(--radius-sm);font-size:14px;outline:none;width:100%">
+        </div>
+        <div class="form-group">
+          <label>Saldo banco al cierre $</label>
+          <input type="number" id="mc_saldo" placeholder="ej: 85000" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:10px;border-radius:var(--radius-sm);font-size:14px;outline:none;width:100%">
+        </div>
+        <div class="form-group">
+          <label>Deuda proveedores al cierre $</label>
+          <input type="number" id="mc_deuda" placeholder="ej: 220000" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:10px;border-radius:var(--radius-sm);font-size:14px;outline:none;width:100%">
+        </div>
+      </div>
+      <div id="mc_msg" style="display:none;margin-top:10px;font-size:13px;text-align:center"></div>
+      <button onclick="guardarMesCompleto(this)" style="width:100%;margin-top:16px;background:var(--blue);color:#fff;border:none;padding:12px;border-radius:var(--radius-sm);font-weight:700;cursor:pointer;font-size:14px">📅 Guardar mes completo</button>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+}
+
+function guardarMesCompleto(btn) {
+  const mes = document.getElementById('mc_mes').value;
+  const venta = parseFloat(document.getElementById('mc_venta').value);
+  const msg = document.getElementById('mc_msg');
+  if (!mes || !venta) {
+    msg.textContent = '⚠ Completá mes y venta total.'; msg.style.color = 'var(--yellow)'; msg.style.display = 'block';
+    return;
+  }
+  const [ano, mesN] = mes.split('-').map(Number);
+  const diasMes = new Date(ano, mesN, 0).getDate();
+  const fechaIni = `${mes}-01`;
+  const fechaFin = `${mes}-${String(diasMes).padStart(2,'0')}`;
+
+  const peya = parseFloat(document.getElementById('mc_peya').value) || null;
+  const visa = parseFloat(document.getElementById('mc_visa').value) || null;
+  const amex = parseFloat(document.getElementById('mc_amex').value) || null;
+  const efvo = parseFloat(document.getElementById('mc_efvo').value) || null;
+  const compra = parseFloat(document.getElementById('mc_compra').value) || null;
+  const pagoProv = parseFloat(document.getElementById('mc_pagoProv').value) || null;
+  const saldo = parseFloat(document.getElementById('mc_saldo').value) || null;
+  const deuda = parseFloat(document.getElementById('mc_deuda').value) || null;
+
+  const peyaPct = peya ? peya/venta : null;
+  const visaPct = visa ? visa/venta : null;
+  const amexPct = amex ? amex/venta : null;
+  const efvoPct = efvo ? efvo/venta : null;
+
+  const nuevo = {
+    id: Date.now(),
+    fechaIni, fechaFin, dias: diasMes, venta,
+    peya, visa, amex, efvo,
+    peyaPct, visaPct, amexPct, efvoPct,
+    compra, pagoProv, saldo, deuda,
+    cmvPct: compra ? compra/venta : null,
+    ventaDia: venta / diasMes,
+    ingresoBanco: calcIngresoBanco(venta, peyaPct, visaPct, amexPct, efvoPct),
+    nota: 'Registro mensual',
+    esMensual: true,
+  };
+
+  // Verificar si ya existe un registro mensual para ese mes
+  const data = loadData();
+  const existente = data.find(s => s.fechaIni === fechaIni && s.esMensual);
+  let nuevaData;
+  if (existente) {
+    nuevaData = data.map(s => s.id === existente.id ? { ...nuevo, id: existente.id } : s);
+  } else {
+    nuevaData = [...data, nuevo];
+  }
+  nuevaData.sort((a,b) => a.fechaIni.localeCompare(b.fechaIni));
+  saveData(nuevaData);
+
+  msg.textContent = '✅ Mes guardado correctamente.'; msg.style.color = 'var(--green)'; msg.style.display = 'block';
+  setTimeout(() => {
+    btn.closest('[style]').remove();
+    renderHistorico();
+    renderDashboard();
+    if (gToken) syncSubir();
+  }, 800);
+}
+
 // ══════════════════════════════════════════════════════
 // RESULTADOS MENSUALES
 // ══════════════════════════════════════════════════════
@@ -2526,7 +2672,12 @@ function buildEstado(mes) {
   const pagoProv    = semanas.reduce((s,x) => s + (x.pagoProv||0), 0);
   const cmvPct      = compra && venta ? compra/venta : null;
   const margenBruto = ingreso - compra;
-  const costosFijos = totalCostosMes(mes);
+  // Costos fijos: usar pagos reales del Flujo de Caja si existen, sino el presupuesto
+  const pagosRealesFlujo = flujoDelMes(mes)
+    .filter(m => m.tipo === 'egreso' && m.estado === 'pagado')
+    .reduce((s,m) => s + m.monto, 0);
+  const costosFijosPresup = totalCostosMes(mes);
+  const costosFijos = pagosRealesFlujo > 0 ? pagosRealesFlujo : costosFijosPresup;
   const flujoNeto   = margenBruto - costosFijos;
   const tasaConv    = venta ? ingreso/venta : 0;
 
@@ -2537,8 +2688,8 @@ function buildEstado(mes) {
   const deudaFinal = conDeuda.length ? conDeuda[conDeuda.length-1].deuda : null;
 
   return { venta, diasMes, ingresoBase, scotiaNeto, ingreso, compra, pagoProv,
-           cmvPct, margenBruto, costosFijos, flujoNeto, tasaConv,
-           saldoFinal, deudaFinal, semanas: semanas.length };
+           cmvPct, margenBruto, costosFijos, costosFijosPresup, pagosRealesFlujo,
+           flujoNeto, tasaConv, saldoFinal, deudaFinal, semanas: semanas.length };
 }
 
 function renderResultados() {
@@ -2599,7 +2750,7 @@ function renderResultados() {
     { l:'CMV — Costo mercadería',        v:e.compra,       style:'sub', neg:true, indent:1 },
     { l:'MARGEN BRUTO',                  v:e.margenBruto,  style:'total', indent:0 },
     { l:'% sobre venta',                 v:null,           style:'pct', pct:e.margenBruto/e.venta, indent:1 },
-    { l:'Costos fijos del mes',          v:e.costosFijos,  style:'sub', neg:true, indent:1 },
+    { l:'Costos fijos del mes' + (e.pagosRealesFlujo > 0 ? ' ✓ (real)' : ' (presupuesto)'), v:e.costosFijos, style:'sub', neg:true, indent:1 },
     { l:'FLUJO NETO',                    v:e.flujoNeto,    style:'total_final', indent:0 },
     { l:'Deuda proveedores al cierre',   v:e.deudaFinal,   style:'info', indent:0 },
   ];
@@ -3532,9 +3683,10 @@ function flujoGuardar(mov) {
 }
 
 function flujoEliminar(mes, id) {
+  const numId = Number(id);
   const all = loadFlujo();
   if (!all[mes]) return;
-  all[mes] = all[mes].filter(m => m.id !== id);
+  all[mes] = all[mes].filter(m => m.id !== numId);
   saveFlujo(all);
 }
 
