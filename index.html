@@ -1101,10 +1101,10 @@ function getVentaDia(fecha) {
   return loadVentasDia()[fecha] || null;
 }
 // Guarda/actualiza venta de un día
-function setVentaDia(fecha, venta, peya, visa, amex, efvo) {
+function setVentaDia(fecha, venta, peya, visa, amex, efvo, master) {
   const all = loadVentasDia();
   if (venta) {
-    all[fecha] = { venta: parseFloat(venta), peya: parseFloat(peya)||null, visa: parseFloat(visa)||null, amex: parseFloat(amex)||null, efvo: parseFloat(efvo)||null };
+    all[fecha] = { venta: parseFloat(venta), peya: parseFloat(peya)||null, visa: parseFloat(visa)||null, amex: parseFloat(amex)||null, efvo: parseFloat(efvo)||null, master: parseFloat(master)||null };
   } else {
     delete all[fecha];
   }
@@ -1312,10 +1312,14 @@ function buildDiaInputs() {
     const dd    = d.getDate().toString().padStart(2,'0');
     const mm    = (d.getMonth()+1).toString().padStart(2,'0');
     const saved = ventas[fecha];
-    const vPeya = saved ? (saved.peya || '') : '';
-    const vVisa = saved ? (saved.visa || '') : '';
-    const vAmex = saved ? (saved.amex || '') : '';
-    const vEfvo = saved ? (saved.efvo || '') : '';
+    const vPeya   = saved ? (saved.peya   || '') : '';
+    const vVisa   = saved ? (saved.visa   || '') : '';  // totalnet total guardado
+    const vMaster = saved ? (saved.master || '') : '';  // master si se guardó por separado
+    const vAmex   = saved ? (saved.amex   || '') : '';
+    const vEfvo   = saved ? (saved.efvo   || '') : '';
+    // Si hay master guardado, visa almacenada = visa+master; recalcular visa sola
+    const showVisa   = vMaster ? (Math.round(saved.visa - saved.master) || '') : vVisa;
+    const showMaster = vMaster || '';
     if (saved) total += saved.venta;
 
     const esPrimero = dd === '01';
@@ -1334,16 +1338,26 @@ function buildDiaInputs() {
             ${saved ? '<span style="color:var(--green);margin-left:4px" title="Guardado">✓</span>' : ''}
           </div>
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:5px">
+        <div style="display:grid;grid-template-columns:1fr 1.6fr 1fr 1fr;gap:5px">
           <div>
             <div style="font-size:10px;color:var(--text2);margin-bottom:3px;text-align:center">PedidosYa</div>
             <input type="number" id="dia_peya_${fecha}" value="${vPeya}" placeholder="0"
               style="${inpStyle}" oninput="recalcTotalSem()" onfocus="this.select()">
           </div>
           <div>
-            <div style="font-size:10px;color:var(--text2);margin-bottom:3px;text-align:center">Totalnet</div>
-            <input type="number" id="dia_visa_${fecha}" value="${vVisa}" placeholder="0"
-              style="${inpStyle}" oninput="recalcTotalSem()" onfocus="this.select()">
+            <div style="font-size:10px;color:var(--text2);margin-bottom:3px;text-align:center">Totalnet <span style="font-size:9px;opacity:0.7">(Visa+Master)</span></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:3px">
+              <div>
+                <div style="font-size:9px;color:var(--text2);margin-bottom:2px;text-align:center">Visa</div>
+                <input type="number" id="dia_visa_${fecha}" value="${showVisa}" placeholder="0"
+                  style="${inpStyle};font-size:12px" oninput="recalcTotalSem()" onfocus="this.select()">
+              </div>
+              <div>
+                <div style="font-size:9px;color:var(--text2);margin-bottom:2px;text-align:center">Master</div>
+                <input type="number" id="dia_master_${fecha}" value="${showMaster}" placeholder="0"
+                  style="${inpStyle};font-size:12px" oninput="recalcTotalSem()" onfocus="this.select()">
+              </div>
+            </div>
           </div>
           <div>
             <div style="font-size:10px;color:var(--text2);margin-bottom:3px;text-align:center">Amex</div>
@@ -1427,9 +1441,10 @@ function recalcTotalSem() {
     const fecha = d.toISOString().slice(0,10);
     const peya = parseFloat(document.getElementById('dia_peya_' + fecha)?.value) || 0;
     const visa = parseFloat(document.getElementById('dia_visa_' + fecha)?.value) || 0;
+    const master = parseFloat(document.getElementById('dia_master_' + fecha)?.value) || 0;
     const amex = parseFloat(document.getElementById('dia_amex_' + fecha)?.value) || 0;
     const efvo = parseFloat(document.getElementById('dia_efvo_' + fecha)?.value) || 0;
-    total += peya + visa + amex + efvo;
+    total += peya + visa + master + amex + efvo;
   }
   const el = document.getElementById('f_totalSem');
   if (el) el.textContent = '$' + Math.round(total).toLocaleString('es-UY');
@@ -1443,10 +1458,12 @@ function guardarDias() {
     const fecha = d.toISOString().slice(0,10);
     const peya = parseFloat(document.getElementById('dia_peya_' + fecha)?.value) || 0;
     const visa = parseFloat(document.getElementById('dia_visa_' + fecha)?.value) || 0;
+    const master = parseFloat(document.getElementById('dia_master_' + fecha)?.value) || 0;
     const amex = parseFloat(document.getElementById('dia_amex_' + fecha)?.value) || 0;
     const efvo = parseFloat(document.getElementById('dia_efvo_' + fecha)?.value) || 0;
-    const total = peya + visa + amex + efvo;
-    if (total > 0) { setVentaDia(fecha, total, peya, visa, amex, efvo); saved++; }
+    const visaTotal = visa + master; // visa field stores totalnet (visa+master) for backward compat
+    const total = peya + visaTotal + amex + efvo;
+    if (total > 0) { setVentaDia(fecha, total, peya, visaTotal, amex, efvo, master); saved++; }
   }
   const msg = document.getElementById('saveDiasMsg');
   msg.textContent = saved > 0 ? `✅ ${saved} días guardados.` : '⚠ Ingresá al menos un valor.';
