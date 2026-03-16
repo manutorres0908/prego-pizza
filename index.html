@@ -458,6 +458,10 @@
           <input type="number" id="sim_cmv" value="32.3" step="0.1" oninput="simular()">
         </div>
       </div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+        <button onclick="guardarEscenario()" style="background:var(--blue);color:#fff;border:none;padding:8px 16px;border-radius:var(--radius-sm);cursor:pointer;font-size:12px;font-weight:700">💾 Guardar escenario</button>
+        <span id="escenarioGuardado" style="font-size:11px;color:var(--text2)"></span>
+      </div>
       <div id="simResultado"></div>
     </div>
     <div class="card">
@@ -715,6 +719,7 @@
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn btn-ghost" onclick="abrirModalIngreso()" style="font-size:12px">+ Registrar ingreso</button>
       <button class="btn btn-ghost" onclick="abrirModalPago()" style="font-size:12px">+ Registrar pago</button>
+      <button class="btn btn-ghost" onclick="registrarSaldoReal()" style="font-size:12px;border-color:var(--yellow);color:var(--yellow)">🏦 Saldo banco real</button>
     </div>
   </div>
 
@@ -2197,7 +2202,30 @@ function renderChartDeuda(data) {
 // ══════════════════════════════════════════════════════
 // PROYECCION
 // ══════════════════════════════════════════════════════
+function guardarEscenario() {
+  const d = {
+    venta: document.getElementById('sim_venta').value,
+    peya:  document.getElementById('sim_peya').value,
+    cmv:   document.getElementById('sim_cmv').value,
+    savedAt: new Date().toISOString()
+  };
+  localStorage.setItem('prego_proyeccion_v1', JSON.stringify(d));
+  const el = document.getElementById('escenarioGuardado');
+  if (el) el.textContent = '✓ Guardado el ' + new Date().toLocaleDateString('es-UY');
+}
+
 function renderProyeccion() {
+  // Cargar escenario guardado si existe
+  try {
+    const saved = JSON.parse(localStorage.getItem('prego_proyeccion_v1') || 'null');
+    if (saved) {
+      document.getElementById('sim_venta').value = saved.venta;
+      document.getElementById('sim_peya').value  = saved.peya;
+      document.getElementById('sim_cmv').value   = saved.cmv;
+      const el = document.getElementById('escenarioGuardado');
+      if (el) el.textContent = '↩ Escenario del ' + new Date(saved.savedAt).toLocaleDateString('es-UY');
+    }
+  } catch(e) {}
   simular(); // llama renderTablaBreakeven() y renderTablaPeya() internamente
   renderChartEscenarios();
 }
@@ -2429,11 +2457,21 @@ function guardarEdicion() {
 
 
 // ── Carga de mes completo (datos históricos mensuales) ─────────
+function mcAutoVenta() {
+  const peya = parseFloat(document.getElementById('mc_peya').value) || 0;
+  const visa = parseFloat(document.getElementById('mc_visa').value) || 0;
+  const amex = parseFloat(document.getElementById('mc_amex').value) || 0;
+  const efvo = parseFloat(document.getElementById('mc_efvo').value) || 0;
+  const total = peya + visa + amex + efvo;
+  if (total > 0) document.getElementById('mc_venta').value = total;
+}
+
 function abrirModalMesCompleto() {
   const overlay = document.createElement('div');
   overlay.style.cssText = 'position:fixed;inset:0;background:#0006;z-index:999;display:flex;align-items:center;justify-content:center;padding:16px';
   const hoy = new Date();
   const mesDefault = hoy.getFullYear() + '-' + String(hoy.getMonth()).padStart(2,'0'); // mes anterior
+  const inp = (id, ph, extra='') => `<input type="number" id="${id}" placeholder="${ph}" oninput="${id.startsWith('mc_p')||id==='mc_visa'||id==='mc_amex'||id==='mc_efvo'?'mcAutoVenta()':''}" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:10px;border-radius:var(--radius-sm);font-size:14px;outline:none;width:100%" ${extra}>`;
   overlay.innerHTML = `
     <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:24px;width:min(500px,95vw);max-height:90vh;overflow-y:auto">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
@@ -2441,48 +2479,52 @@ function abrirModalMesCompleto() {
         <button onclick="this.closest('[style]').remove()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--text2)">×</button>
       </div>
       <div style="font-size:12px;color:var(--text2);margin-bottom:14px;background:var(--bg3);padding:8px 10px;border-radius:6px">
-        Usá esto para cargar datos de meses completos (ej: enero, febrero) cuando tenés el resumen mensual pero no semanal. Se crea un único registro que cubre todo el mes.
+        Usá esto para cargar datos de meses completos cuando tenés el resumen mensual pero no semanal. Completá los canales de venta y la venta total se calcula sola.
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
         <div class="form-group" style="grid-column:1/-1">
           <label>Mes a cargar</label>
           <input type="month" id="mc_mes" value="${mesDefault}" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:10px;border-radius:var(--radius-sm);font-size:14px;outline:none;width:100%">
         </div>
+        <div class="form-group">
+          <label>PedidosYa $</label>
+          ${inp('mc_peya','ej: 320000')}
+        </div>
+        <div class="form-group">
+          <label>Visa/Master $</label>
+          ${inp('mc_visa','ej: 380000')}
+        </div>
+        <div class="form-group">
+          <label>AMEX $</label>
+          ${inp('mc_amex','ej: 65000')}
+        </div>
+        <div class="form-group">
+          <label>Efectivo/Transf $</label>
+          ${inp('mc_efvo','ej: 70000')}
+        </div>
         <div class="form-group" style="grid-column:1/-1">
-          <label>Venta total del mes $</label>
-          <input type="number" id="mc_venta" placeholder="ej: 950000" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:10px;border-radius:var(--radius-sm);font-size:14px;outline:none;width:100%">
+          <label>Venta total del mes $ <span style="font-size:10px;color:var(--text2)">(se calcula sola al completar canales)</span></label>
+          <input type="number" id="mc_venta" placeholder="ej: 950000" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:10px;border-radius:var(--radius-sm);font-size:14px;outline:none;width:100%;font-weight:700">
         </div>
-        <div class="form-group">
-          <label>PedidosYa $ (opcional)</label>
-          <input type="number" id="mc_peya" placeholder="ej: 320000" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:10px;border-radius:var(--radius-sm);font-size:14px;outline:none;width:100%">
-        </div>
-        <div class="form-group">
-          <label>Visa/Master $ (opcional)</label>
-          <input type="number" id="mc_visa" placeholder="ej: 380000" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:10px;border-radius:var(--radius-sm);font-size:14px;outline:none;width:100%">
-        </div>
-        <div class="form-group">
-          <label>AMEX $ (opcional)</label>
-          <input type="number" id="mc_amex" placeholder="ej: 65000" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:10px;border-radius:var(--radius-sm);font-size:14px;outline:none;width:100%">
-        </div>
-        <div class="form-group">
-          <label>Efectivo/Transf $ (opcional)</label>
-          <input type="number" id="mc_efvo" placeholder="ej: 70000" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:10px;border-radius:var(--radius-sm);font-size:14px;outline:none;width:100%">
+        <div class="form-group" style="grid-column:1/-1">
+          <label>Scotia/AMEX cobrado neto $ <span style="font-size:10px;color:var(--text2)">(opcional)</span></label>
+          ${inp('mc_scotia','ej: 57000')}
         </div>
         <div class="form-group">
           <label>Compra proveedores $ (CMV)</label>
-          <input type="number" id="mc_compra" placeholder="ej: 307000" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:10px;border-radius:var(--radius-sm);font-size:14px;outline:none;width:100%">
+          ${inp('mc_compra','ej: 307000')}
         </div>
         <div class="form-group">
           <label>Pago a proveedores $</label>
-          <input type="number" id="mc_pagoProv" placeholder="ej: 290000" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:10px;border-radius:var(--radius-sm);font-size:14px;outline:none;width:100%">
+          ${inp('mc_pagoProv','ej: 290000')}
         </div>
         <div class="form-group">
           <label>Saldo banco al cierre $</label>
-          <input type="number" id="mc_saldo" placeholder="ej: 85000" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:10px;border-radius:var(--radius-sm);font-size:14px;outline:none;width:100%">
+          ${inp('mc_saldo','ej: 85000')}
         </div>
         <div class="form-group">
           <label>Deuda proveedores al cierre $</label>
-          <input type="number" id="mc_deuda" placeholder="ej: 220000" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:10px;border-radius:var(--radius-sm);font-size:14px;outline:none;width:100%">
+          ${inp('mc_deuda','ej: 220000')}
         </div>
       </div>
       <div id="mc_msg" style="display:none;margin-top:10px;font-size:13px;text-align:center"></div>
@@ -2509,6 +2551,7 @@ function guardarMesCompleto(btn) {
   const visa = parseFloat(document.getElementById('mc_visa').value) || null;
   const amex = parseFloat(document.getElementById('mc_amex').value) || null;
   const efvo = parseFloat(document.getElementById('mc_efvo').value) || null;
+  const scotia = parseFloat(document.getElementById('mc_scotia').value) || null;
   const compra = parseFloat(document.getElementById('mc_compra').value) || null;
   const pagoProv = parseFloat(document.getElementById('mc_pagoProv').value) || null;
   const saldo = parseFloat(document.getElementById('mc_saldo').value) || null;
@@ -2528,6 +2571,7 @@ function guardarMesCompleto(btn) {
     cmvPct: compra ? compra/venta : null,
     ventaDia: venta / diasMes,
     ingresoBanco: calcIngresoBanco(venta, peyaPct, visaPct, amexPct, efvoPct),
+    scotiaBruto: scotia, scotiaNeto: scotia, scotiaRetDGI: null, scotiaMes: mes,
     nota: 'Registro mensual',
     esMensual: true,
   };
@@ -3826,13 +3870,23 @@ function renderFlujo() {
   const pagados = costos.filter(c => estaRegistrado(mes, c.label)).length;
   const pendientes = costos.length - pagados;
   const saldoUlt = saldoProyDias.length ? saldoProyDias[saldoProyDias.length-1].saldo : 0;
+  // Saldo real registrado (último del mes)
+  const saldosRealesMov = movs.filter(m => m.tipo === 'saldo_real').sort((a,b) => b.fecha.localeCompare(a.fecha));
+  const ultimoSaldoReal = saldosRealesMov.length ? saldosRealesMov[0] : null;
+  // Pagos a proveedores del mes (desde semanas)
+  const pagosProv = loadData()
+    .filter(s => s.fechaIni.slice(0,7) === mes || s.fechaFin.slice(0,7) === mes)
+    .reduce((s,x) => s + (x.pagoProv || 0), 0);
 
-  document.getElementById('flujoKPIs').innerHTML = [
+  const kpisData = [
     { l:'Egresos fijos del mes',    v:fmt$(totalEgresos),      c:'red',    s:`${costos.length} vencimientos programados` },
-    { l:'Ingresos registrados',     v:fmt$(totalIngresos),     c:'green',  s:`${movs.filter(m=>m.tipo==='ingreso').length} movimientos` },
+    { l:'Ingresos registrados',     v:fmt$(totalIngresos),     c:'green',  s:`${movs.filter(m=>m.tipo==='ingreso').length} cobros en banco` },
+    { l:'Pagos a proveedores',      v:pagosProv > 0 ? fmt$(pagosProv) : '—', c:'yellow', s:'Acumulado desde semanas' },
     { l:'Pagos pendientes',         v:pendientes + ' pagos',   c:pendientes>0?'yellow':'green', s:`${pagados} pagados este mes` },
     { l:'Saldo proy. fin de mes',   v:fmt$(saldoUlt),          c:saldoUlt>=PARAMS.minSaldo?'green':'red', s:`Mín: ${fmt$(PARAMS.minSaldo)}` },
-  ].map(k=>`<div class="kpi ${k.c}">
+    { l:'Saldo banco real',         v:ultimoSaldoReal ? fmt$(ultimoSaldoReal.monto) : '—', c:ultimoSaldoReal?(ultimoSaldoReal.monto>=PARAMS.minSaldo?'green':'red'):'blue', s:ultimoSaldoReal ? `al ${ultimoSaldoReal.fecha.slice(8)}/${ultimoSaldoReal.fecha.slice(5,7)}` : 'No registrado — usá 🏦' },
+  ];
+  document.getElementById('flujoKPIs').innerHTML = kpisData.map(k=>`<div class="kpi ${k.c}">
     <div class="kpi-label">${k.l}</div>
     <div class="kpi-value ${k.c}">${k.v}</div>
     <div class="kpi-sub">${k.s}</div>
@@ -3845,7 +3899,10 @@ function renderFlujo() {
     const labels = saldoProyDias.map(d => d.d);
     const saldos = saldoProyDias.map(d => d.saldo);
     const minLine = Array(saldoProyDias.length).fill(PARAMS.minSaldo);
-    // Línea vertical del día actual
+    // Puntos de saldo real registrado (scatter)
+    const puntosReales = movs
+      .filter(m => m.tipo === 'saldo_real')
+      .map(m => ({ x: parseInt(m.fecha.slice(8)) - 1, y: m.monto })); // x = index (día-1)
     const diaActual = esMesActual ? hoy.getDate() - 1 : -1;
     charts['flujoDia'] = new Chart(canvas, {
       type: 'line',
@@ -3857,6 +3914,9 @@ function renderFlujo() {
             pointBackgroundColor: saldos.map(v => v < PARAMS.minSaldo ? '#dc2626' : v < PARAMS.minSaldo*1.5 ? '#f59e0b' : '#16a34a') },
           { label: `Mínimo operativo (${fmt$(PARAMS.minSaldo)})`, data: minLine,
             borderColor: '#dc2626', borderDash: [5,3], borderWidth: 2, pointRadius: 0, fill: false },
+          { label: 'Saldo real registrado', data: puntosReales, type: 'scatter',
+            backgroundColor: '#f59e0b', borderColor: '#f59e0b', pointRadius: 7, pointStyle: 'rectRot',
+            showLine: false },
         ]
       },
       options: { responsive: true, maintainAspectRatio: false,
@@ -3944,8 +4004,8 @@ function renderFlujo() {
       </div>`;
 
   // ── Tabla movimientos ──────────────────────────────────────────
-  const allMovs = [...movs];
-  // Agregar vencimientos como filas (para visibilidad completa)
+  // Excluir saldo_real de la tabla (son puntos de referencia, no transacciones)
+  const allMovs = movs.filter(m => m.tipo !== 'saldo_real');
   const tbody = document.getElementById('flujoMovimientos');
   const emptyEl = document.getElementById('flujoMovEmpty');
   document.getElementById('flujoMovCount').textContent = `(${allMovs.length} registros)`;
@@ -4090,6 +4150,52 @@ function guardarPago(btn) {
   const fecha = document.getElementById('mp_fecha').value;
   if (!concepto || !monto || !fecha) { alert('Completá todos los campos.'); return; }
   const mov = { id: Date.now(), fecha, concepto, tipo: 'egreso', monto, estado: 'pagado', nota: '' };
+  flujoGuardar(mov);
+  btn.closest('[style]').remove();
+  renderFlujo();
+  if (gToken) syncSubir();
+}
+
+// ── Modal: Registrar saldo banco real ───────────────────────────
+function registrarSaldoReal() {
+  const mes = flujoMesActual;
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:#0006;z-index:999;display:flex;align-items:center;justify-content:center;padding:16px';
+  overlay.innerHTML = `
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:24px;width:min(400px,95vw)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+        <h3 style="font-size:15px;font-weight:700">🏦 Saldo banco real</h3>
+        <button onclick="this.closest('[style]').remove()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--text2)">×</button>
+      </div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:14px;background:var(--bg3);padding:8px 10px;border-radius:6px">
+        Ingresá el saldo real del banco a hoy. Aparecerá como punto de referencia (🔶) en el gráfico de saldo proyectado para comparar proyección vs realidad.
+      </div>
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div class="form-group">
+          <label>Saldo actual del banco $</label>
+          <input type="number" id="sr_monto" placeholder="ej: 85000" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:10px;border-radius:var(--radius-sm);font-size:14px;outline:none;width:100%;font-weight:700">
+        </div>
+        <div class="form-group">
+          <label>Fecha del saldo</label>
+          <input type="date" id="sr_fecha" value="${new Date().toISOString().slice(0,10)}" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:10px;border-radius:var(--radius-sm);font-size:14px;outline:none;width:100%">
+        </div>
+        <div class="form-group">
+          <label>Nota (opcional)</label>
+          <input type="text" id="sr_nota" placeholder="ej: extracto del 15/03" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:10px;border-radius:var(--radius-sm);font-size:14px;outline:none;width:100%">
+        </div>
+      </div>
+      <button onclick="guardarSaldoReal(this)" style="width:100%;margin-top:16px;background:var(--yellow);color:#000;border:none;padding:12px;border-radius:var(--radius-sm);font-weight:700;cursor:pointer;font-size:14px">🏦 Registrar saldo</button>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+}
+
+function guardarSaldoReal(btn) {
+  const monto = parseFloat(document.getElementById('sr_monto').value);
+  const fecha  = document.getElementById('sr_fecha').value;
+  const nota   = document.getElementById('sr_nota').value;
+  if (!monto || !fecha) { alert('Completá monto y fecha.'); return; }
+  const mov = { id: Date.now(), fecha, concepto: 'Saldo banco real', tipo: 'saldo_real', monto, estado: 'real', nota };
   flujoGuardar(mov);
   btn.closest('[style]').remove();
   renderFlujo();
