@@ -2197,12 +2197,18 @@ function renderResumenMeses(data) {
 function renderChartDeuda(data) {
   destroyChart('deuda');
   const canvas = document.getElementById('chartDeuda');
-  const withDeuda = data.filter(s => s.deuda).slice(-12);
-  if (!withDeuda.length) return;
+  // Agrupar por mes: usar el último valor de deuda registrado en cada mes
+  const mesesMap = {};
+  data.filter(s => s.deuda).forEach(s => {
+    const mes = s.fechaIni.slice(0, 7);
+    mesesMap[mes] = s.deuda; // el último registro del mes queda (data está ordenada por fechaIni)
+  });
+  const meses = Object.keys(mesesMap).sort().slice(-12);
+  if (!meses.length) return;
 
-  const labels = withDeuda.map(s => s.fechaIni.slice(5));
-  const deudas = withDeuda.map(s => s.deuda);
-  const maxLine = Array(withDeuda.length).fill(PARAMS.maxDeuda);
+  const labels = meses.map(m => { const [a,n]=m.split('-'); return MESES_NOMBRES[parseInt(n)-1].slice(0,3)+' '+a.slice(2); });
+  const deudas = meses.map(m => mesesMap[m]);
+  const maxLine = Array(meses.length).fill(PARAMS.maxDeuda);
 
   charts['deuda'] = new Chart(canvas, {
     type: 'line',
@@ -2742,6 +2748,10 @@ function buildEstado(mes) {
   const costosFijos = pagosRealesFlujo > 0 ? pagosRealesFlujo : costosFijosPresup;
   const flujoNeto   = margenBruto - costosFijos;
   const tasaConv    = venta ? ingreso/venta : 0;
+  // Break-even real del mes: basado en el CMV y tasa de conversión reales
+  const cmvReal = cmvPct || PARAMS.cmvPct;
+  const margenCaja = tasaConv - cmvReal;
+  const breakEven = (margenCaja > 0 && costosFijos > 0) ? costosFijos / margenCaja : PARAMS.breakEven;
 
   // Saldo y deuda: último valor disponible del mes
   const conSaldo = semanas.filter(s => s.saldo);
@@ -2751,7 +2761,7 @@ function buildEstado(mes) {
 
   return { venta, diasMes, ingresoBase, scotiaNeto, ingreso, compra, pagoProv,
            cmvPct, margenBruto, costosFijos, costosFijosPresup, pagosRealesFlujo,
-           flujoNeto, tasaConv, saldoFinal, deudaFinal, semanas: semanas.length };
+           flujoNeto, tasaConv, breakEven, saldoFinal, deudaFinal, semanas: semanas.length };
 }
 
 function renderResultados() {
@@ -2781,9 +2791,9 @@ function renderResultados() {
   const ePrev = buildEstado(mesPrev);
 
   // ── KPIs ──────────────────────────────────────────────────────
-  const beOk = e.venta >= PARAMS.breakEven;
+  const beOk = e.venta >= e.breakEven;
   const kpis = [
-    { l:'Venta del mes',    v:fmt$(e.venta),      c: beOk?'green':'red',    s:'BE: '+fmt$(PARAMS.breakEven) },
+    { l:'Venta del mes',    v:fmt$(e.venta),      c: beOk?'green':'red',    s:'BE real: '+fmt$(e.breakEven) },
     { l:'Ingreso al banco', v:fmt$(e.ingreso),     c:'blue',                 s:'Tasa conv: '+fmtPct(e.tasaConv) },
     { l:'CMV %',            v:e.cmvPct?fmtPct(e.cmvPct):'—', c:!e.cmvPct?'blue':e.cmvPct<=PARAMS.cmvPct?'green':e.cmvPct<=PARAMS.maxCMV?'yellow':'red', s:'Límite: '+fmtPct(PARAMS.maxCMV) },
     { l:'Margen bruto',     v:fmt$(e.margenBruto), c:e.margenBruto>0?'green':'red', s:fmtPct(e.margenBruto/e.venta)+' de la venta' },
@@ -2798,7 +2808,7 @@ function renderResultados() {
     </div>`).join('');
 
   // BE badge
-  const difBE = e.venta - PARAMS.breakEven;
+  const difBE = e.venta - e.breakEven;
   document.getElementById('resMesVsBE').innerHTML =
     `<span style="color:${difBE>=0?'var(--green)':'var(--red)'};font-weight:700">${difBE>=0?'✓ ':'✗ '}${difBE>=0?'+':''}${fmt$(difBE)} vs BE</span>`;
 
@@ -2938,17 +2948,18 @@ function renderChartMensual() {
   if (mesesUnicos.length < 1) return;
 
   const labels   = mesesUnicos.map(m => { const [a,n]=m.split('-'); return MESES_NOMBRES[parseInt(n)-1].slice(0,3)+' '+a.slice(2); });
-  const ventas   = mesesUnicos.map(m => buildEstado(m)?.venta || 0);
-  const flujos   = mesesUnicos.map(m => buildEstado(m)?.flujoNeto || 0);
-  const beLines  = mesesUnicos.map(() => PARAMS.breakEven);
+  const estados  = mesesUnicos.map(m => buildEstado(m));
+  const ventas   = estados.map(e => e?.venta || 0);
+  const flujos   = estados.map(e => e?.flujoNeto || 0);
+  const beLines  = estados.map(e => e?.breakEven || PARAMS.breakEven);
 
   charts['mensual'] = new Chart(canvas, {
     data: {
       labels,
       datasets: [
-        { type:'bar',  label:'Venta', data:ventas, backgroundColor: ventas.map(v=>v>=PARAMS.breakEven?'#16a34a33':'#dc262633'), borderColor: ventas.map(v=>v>=PARAMS.breakEven?'#16a34a':'#dc2626'), borderWidth:2, borderRadius:4, yAxisID:'y' },
+        { type:'bar',  label:'Venta', data:ventas, backgroundColor: ventas.map((v,i)=>v>=(beLines[i])?'#16a34a33':'#dc262633'), borderColor: ventas.map((v,i)=>v>=(beLines[i])?'#16a34a':'#dc2626'), borderWidth:2, borderRadius:4, yAxisID:'y' },
         { type:'line', label:'Flujo neto', data:flujos, borderColor:'#2563eb', backgroundColor:'#2563eb18', fill:true, borderWidth:2, tension:0.3, pointRadius:4, pointBackgroundColor:flujos.map(f=>f>=0?'#16a34a':'#dc2626'), yAxisID:'y2' },
-        { type:'line', label:'Break Even', data:beLines, borderColor:'#d97706', borderDash:[6,3], borderWidth:2, pointRadius:0, fill:false, yAxisID:'y' },
+        { type:'line', label:'Break Even real', data:beLines, borderColor:'#d97706', borderDash:[6,3], borderWidth:2, pointRadius:3, pointBackgroundColor:'#d97706', fill:false, yAxisID:'y' },
       ]
     },
     options: { responsive:true, maintainAspectRatio:false,
@@ -3040,12 +3051,12 @@ function renderAnual() {
   const totalIngreso = conDatos.reduce((s,x)=>s+x.e.ingreso,0);
   const totalCMVp    = conDatos.reduce((s,x)=>s+x.e.compra,0) / totalVenta;
   const totalFlujo   = conDatos.reduce((s,x)=>s+x.e.flujoNeto,0);
-  const mesesSobreBE = conDatos.filter(x=>x.e.venta>=PARAMS.breakEven).length;
+  const mesesSobreBE = conDatos.filter(x=>x.e.venta>=(x.e.breakEven||PARAMS.breakEven)).length;
   const promedioMes  = totalVenta / conDatos.length;
 
   const kpis = [
     { l:'Venta total año',       v:fmt$(totalVenta),      c:'blue',                              s:`${conDatos.length} meses con datos` },
-    { l:'Promedio mensual',      v:fmt$(promedioMes),     c:promedioMes>=PARAMS.breakEven?'green':'red', s:'BE: '+fmt$(PARAMS.breakEven) },
+    { l:'Promedio mensual',      v:fmt$(promedioMes),     c:promedioMes>=PARAMS.breakEven?'green':'red', s:'BE ref: '+fmt$(PARAMS.breakEven) },
     { l:'CMV promedio año',      v:fmtPct(totalCMVp),     c:totalCMVp<=PARAMS.cmvPct?'green':totalCMVp<=PARAMS.maxCMV?'yellow':'red', s:'Límite: '+fmtPct(PARAMS.maxCMV) },
     { l:'Flujo neto acumulado',  v:fmt$(totalFlujo),      c:totalFlujo>=0?'green':'red',         s:'Suma del año' },
     { l:'Meses sobre break even',v:mesesSobreBE+' / '+conDatos.length, c:mesesSobreBE===conDatos.length?'green':mesesSobreBE>conDatos.length/2?'yellow':'red', s:'' },
@@ -3063,7 +3074,7 @@ function renderAnual() {
     const [a,n] = mes.split('-');
     const nomMes = MESES_NOMBRES[parseInt(n)-1].slice(0,3);
     if (!e) return `<tr><td><b>${nomMes}</b></td>${'<td style="color:var(--text2);text-align:center">—</td>'.repeat(8)}</tr>`;
-    const difBE = e.venta - PARAMS.breakEven;
+    const difBE = e.venta - e.breakEven;
     const beColor = difBE>=0?'var(--green)':'var(--red)';
     return `<tr onclick="resMesActual='${mes}';showPage('resultados')" style="cursor:pointer" title="Ver detalle de ${nomMes}">
       <td><b>${nomMes}</b></td>
@@ -3074,7 +3085,7 @@ function renderAnual() {
       <td style="text-align:right">${fmt$(e.costosFijos)}</td>
       <td style="text-align:right;font-weight:700;color:${e.flujoNeto>=0?'var(--green)':'var(--red)'}">${fmt$(e.flujoNeto)}</td>
       <td style="text-align:right;color:${beColor}">${difBE>=0?'+':''}${fmt$(difBE)}</td>
-      <td><span class="badge ${e.venta>=PARAMS.breakEven?'green':'red'}">${e.venta>=PARAMS.breakEven?'✓ BE':'✗ Bajo'}</span></td>
+      <td><span class="badge ${e.venta>=e.breakEven?'green':'red'}">${e.venta>=e.breakEven?'✓ BE':'✗ Bajo'}</span></td>
     </tr>`;
   }).join('');
 
@@ -3089,7 +3100,7 @@ function renderChartsAnuales(estados) {
   const ventas  = estados.map(x => x.e?.venta || 0);
   const flujos  = estados.map(x => x.e?.flujoNeto || null);
   const cmvs    = estados.map(x => x.e?.cmvPct ? x.e.cmvPct*100 : null);
-  const beArr   = estados.map(() => PARAMS.breakEven);
+  const beArr   = estados.map(x => x.e?.breakEven || PARAMS.breakEven);
   const chartOpts = (y1label) => ({
     responsive:true, maintainAspectRatio:false,
     plugins:{ legend:{ labels:{ color:'#6b7280', font:{size:11} } } },
@@ -3099,8 +3110,8 @@ function renderChartsAnuales(estados) {
 
   charts['anualVenta'] = new Chart(document.getElementById('chartAnualVenta'), {
     type:'bar', data:{ labels, datasets:[
-      { label:'Venta', data:ventas, backgroundColor:ventas.map(v=>v>=PARAMS.breakEven?'#16a34a33':'#dc262633'), borderColor:ventas.map(v=>v>=PARAMS.breakEven?'#16a34a':'#dc2626'), borderWidth:2, borderRadius:4 },
-      { label:'BE', data:beArr, type:'line', borderColor:'#d97706', borderDash:[5,3], borderWidth:2, pointRadius:0, fill:false },
+      { label:'Venta', data:ventas, backgroundColor:ventas.map((v,i)=>v>=beArr[i]?'#16a34a33':'#dc262633'), borderColor:ventas.map((v,i)=>v>=beArr[i]?'#16a34a':'#dc2626'), borderWidth:2, borderRadius:4 },
+      { label:'BE real', data:beArr, type:'line', borderColor:'#d97706', borderDash:[5,3], borderWidth:2, pointRadius:3, pointBackgroundColor:'#d97706', fill:false },
     ]}, options: chartOpts()
   });
 
@@ -3499,10 +3510,10 @@ function exportPDFResultados() {
 
 ${e ? `
 <div class="kpis">
-  <div class="kpi ${e.venta>=PARAMS.breakEven?'ok':'bad'}">
+  <div class="kpi ${e.venta>=e.breakEven?'ok':'bad'}">
     <div class="lbl">Venta del mes</div>
     <div class="val">${fmt$(e.venta)}</div>
-    <div style="font-size:10px;color:#6b7280;margin-top:2px">BE: ${fmt$(PARAMS.breakEven)}</div>
+    <div style="font-size:10px;color:#6b7280;margin-top:2px">BE real: ${fmt$(e.breakEven)}</div>
   </div>
   <div class="kpi info">
     <div class="lbl">Ingreso al banco</div>
@@ -3560,10 +3571,10 @@ function generarAnalisis(e, mes) {
   // 1. Resultado del mes
   if (e.flujoNeto >= 0) {
     bloques.push({ tipo:'ok', titulo:'✓ Mes positivo',
-      texto: `El mes cerró con flujo positivo de ${fmt$(e.flujoNeto)}. La venta de ${fmt$(e.venta)} superó ${e.venta>=PARAMS.breakEven?'el break even de '+fmt$(PARAMS.breakEven):'el mínimo esperado'}. Margen bruto: ${fmtPct(e.margenBruto/e.venta)}.` });
+      texto: `El mes cerró con flujo positivo de ${fmt$(e.flujoNeto)}. La venta de ${fmt$(e.venta)} superó ${e.venta>=e.breakEven?'el break even real de '+fmt$(e.breakEven):'el mínimo esperado'}. Margen bruto: ${fmtPct(e.margenBruto/e.venta)}.` });
   } else {
     bloques.push({ tipo:'alerta', titulo:'✗ Mes negativo',
-      texto: `El mes cerró con flujo negativo de ${fmt$(e.flujoNeto)}. La venta de ${fmt$(e.venta)} estuvo ${fmt$(PARAMS.breakEven - e.venta)} por debajo del break even. Para cubrir costos fijos de ${fmt$(e.costosFijos)} se necesitaba vender ${fmt$(PARAMS.breakEven)}.` });
+      texto: `El mes cerró con flujo negativo de ${fmt$(e.flujoNeto)}. La venta de ${fmt$(e.venta)} estuvo ${fmt$(e.breakEven - e.venta)} por debajo del break even real (${fmt$(e.breakEven)}). Para cubrir costos fijos de ${fmt$(e.costosFijos)} se necesitaba vender ${fmt$(e.breakEven)}.` });
   }
 
   // 2. Deuda de proveedores
